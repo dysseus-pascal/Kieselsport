@@ -1,0 +1,75 @@
+# Baut die Uhr-App und legt die fertige kieselsport.pbw ins Repo.
+#
+# WARUM HIER: die kieselsport.pbw im Repo stand bei 0.1.0, waehrend die
+# Quellen bei 0.5.0 waren - wer sie installierte, bekam eine Uhr ohne
+# Startmeldung, ohne Saetze und ohne Bahnen. Sie von Hand nachzuziehen,
+# wird vergessen; hier entsteht sie bei jeder Aenderung an den Quellen neu.
+#
+# Der Lauf belegt, dass die App uebersetzt. Dass sie auf der Uhr das
+# Richtige TUT, belegt er nicht.
+name: Bauen
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'resources/**'
+      - 'package.json'
+      - 'wscript'
+      - '.github/workflows/bauen.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Clay und das Buendeln des JavaScript-Teils brauchen Node.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Pebble-SDK bereitstellen
+        run: |
+          pip install --quiet pebble-tool
+          pebble sdk install latest < /dev/null
+
+      - name: Clay holen
+        run: npm install --no-audit --no-fund
+
+      - name: Uebersetzen
+        run: pebble build < /dev/null
+
+      # Der Name der Datei im Build haengt am Ordnernamen, nicht an der App.
+      - name: kieselsport.pbw ersetzen
+        run: cp build/*.pbw kieselsport.pbw
+
+      - name: Paket anhaengen
+        uses: actions/upload-artifact@v4
+        with:
+          name: kieselsport
+          path: kieselsport.pbw
+          if-no-files-found: error
+
+      # Ein Push mit dem GITHUB_TOKEN loest keinen neuen Lauf aus - die
+      # Schleife "bauen, einchecken, bauen" gibt es deshalb nicht.
+      - name: Einchecken
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kieselsport.pbw
+          if git diff --cached --quiet; then
+            echo "Keine Aenderung."
+          else
+            git commit -m "kieselsport.pbw neu gebaut ($(jq -r .version package.json))"
+            git push
+          fi

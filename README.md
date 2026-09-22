@@ -259,6 +259,11 @@ Leerzeichen.
 KIESELSPORT_SRC=<dieser Ordner> tools/sync_kieselsport.sh "" demo
 ```
 
+Die `kieselsport.pbw` im Repo baut GitHub bei jeder Änderung an den Quellen
+neu und checkt sie selbst ein (`.github/workflows/bauen.yml`). Sie stand einmal
+vier Fassungen hinter den Quellen — wer sie installierte, bekam eine Uhr ohne
+Startmeldung, ohne Sätze und ohne Bahnen.
+
 Der Schalter `demo` erfindet Puls und Summen und springt gleich ins Training.
 Ohne ihn lässt sich der laufende Schirm im Emulator nie ansehen: dort gibt es
 weder einen Sensor noch einen Tastendruck von aussen.
