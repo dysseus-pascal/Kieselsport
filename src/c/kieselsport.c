@@ -25,10 +25,10 @@ static uint16_t prv_zeilen(MenuLayer *liste, uint16_t abschnitt, void *ctx) {
 
 static void prv_zeichne_zeile(GContext *ctx, const Layer *zelle,
                               MenuIndex *index, void *daten) {
-  // DER OBERTITEL TRENNT, WAS ZUSAMMENGEHOERT: Strasse, Gravel und MTB
+  // DER OBERTITEL TRENNT, WAS ZUSAMMENGEHOERT: Strasse/Gravel und MTB
   // stehen im Menue nicht beieinander - die Zahl einer Art darf sich nie
-  // verschieben, also kamen die neuen hinten dazu. Das Woertchen "Velo"
-  // darunter sagt trotzdem, was sie sind.
+  // verschieben, also kam MTB hinten dazu. Das Woertchen "Bike" darunter
+  // sagt trotzdem, was beide sind.
   const Sportart art = (Sportart)index->row;
   menu_cell_basic_draw(ctx, zelle, art_name(art), art_gruppe(art), NULL);
 }
