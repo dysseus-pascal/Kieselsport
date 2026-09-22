@@ -168,6 +168,9 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
 
 static void prv_auswahl(ClickRecognizerRef anlass, void *context) {
   training_pause_umschalten();
+  telefon_melde_zustand(
+      training_zustand() == LaufPause ? ZustandPause : ZustandWeiter,
+      (uint8_t)training_art(), training_stand().beginn);
   layer_mark_dirty(s_flaeche);
 }
 
@@ -176,11 +179,17 @@ static void prv_zurueck(ClickRecognizerRef anlass, void *context) {
   // duerfte sonst ein Training kosten. Erst in der Pause geht es hinaus.
   if (training_zustand() == LaufLaeuft) {
     training_pause_umschalten();
+    telefon_melde_zustand(ZustandPause, (uint8_t)training_art(),
+                          training_stand().beginn);
     layer_mark_dirty(s_flaeche);
     return;
   }
   const Trainingsstand t = training_stoppe();
+  // Die Zusammenfassung TRAEGT das Ende schon. Nur wenn keine kommt - bei
+  // einem Training unter einer Minute - braucht das Telefon eine eigene
+  // Meldung, sonst zeichnete es weiter auf.
   if (t.dauer_s >= 60) telefon_sende(&t);
+  else telefon_melde_zustand(ZustandStop, t.art, t.beginn);
   window_stack_pop(true);
 }
 
@@ -218,6 +227,9 @@ static void prv_entladen(Window *fenster) {
 
 void lauf_window_zeige(Sportart art) {
   training_starte(art);
+  // ZUERST MELDEN, DANN ZEICHNEN. Jede Sekunde, die das Telefon spaeter
+  // anfaengt, fehlt der Strecke am Anfang.
+  telefon_melde_zustand(ZustandStart, (uint8_t)art, training_stand().beginn);
   s_letzte_zone = -1;
 
   s_fenster = window_create();

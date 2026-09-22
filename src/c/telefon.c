@@ -53,6 +53,10 @@ static void prv_sende_jetzt(void) {
   dict_write_int32(out, MESSAGE_KEY_KCAL, (int32_t)s_wartet.kcal);
   dict_write_int32(out, MESSAGE_KEY_PULS_MITTEL, (int32_t)s_wartet.puls_mittel);
   dict_write_int32(out, MESSAGE_KEY_PULS_MAX, (int32_t)s_wartet.puls_max);
+  // DAS ENDE STEHT IN DERSELBEN NACHRICHT. Eine eigene Stopmeldung daneben
+  // straeubte sich mit dieser um den Postausgang - der fasst genau EINE
+  // Nachricht, und die zweite fiele mit BUSY aus.
+  dict_write_int32(out, MESSAGE_KEY_ZUSTAND, (int32_t)ZustandStop);
   app_message_outbox_send();
 }
 
@@ -60,6 +64,26 @@ void telefon_sende(const Trainingsstand *t) {
   s_wartet = *t;
   s_hat_wartende = true;
   prv_sende_jetzt();
+}
+
+/**
+ * Eine kurze Zustandsmeldung - ohne Nachfassen.
+ *
+ * Sie darf ausfallen: geht der Start verloren, fehlt die Strecke, und das ist
+ * aergerlich, aber nicht schlimm. Die Zusammenfassung am Ende ist die
+ * Nachricht, die ankommen MUSS - die faellt deshalb nicht in denselben
+ * Postausgang, sondern wartet und fasst nach.
+ */
+void telefon_melde_zustand(Trainingsmeldung was, uint8_t art, uint32_t beginn) {
+  DictionaryIterator *out;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
+  dict_write_int32(out, MESSAGE_KEY_ZUSTAND, (int32_t)was);
+  dict_write_int32(out, MESSAGE_KEY_ART, (int32_t)art);
+  // DER BEGINN MUSS SCHON HIER MIT. Das Telefon legt die Spurdatei unter
+  // diesem Zeitpunkt ab; erfuehre es ihn erst mit der Zusammenfassung,
+  // haette es die Punkte unter einem anderen Namen gesammelt.
+  dict_write_int32(out, MESSAGE_KEY_BEGINN, (int32_t)beginn);
+  app_message_outbox_send();
 }
 
 void telefon_init(void) {

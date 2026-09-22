@@ -1,7 +1,7 @@
 {
   "name": "kieselsport",
   "author": "dysseus-pascal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -35,7 +35,8 @@
       "KCAL",
       "PULS_MITTEL",
       "PULS_MAX",
-      "MAXPULS"
+      "MAXPULS",
+      "ZUSTAND"
     ],
     "resources": {
       "media": []

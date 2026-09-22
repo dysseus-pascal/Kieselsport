@@ -17,3 +17,17 @@
 
 void telefon_init(void);
 void telefon_sende(const Trainingsstand *t);
+
+// Was gerade geschieht - damit das Telefon weiss, wann es mitschreiben soll.
+//
+// DIE UHR HAT KEIN GPS. Die Strecke kann nur das Telefon aufzeichnen, und das
+// muss dafuer wissen, dass ein Training laeuft. Ohne diese Meldung erfuehre es
+// erst am Ende davon - und haette nichts aufgezeichnet.
+typedef enum {
+  ZustandStop = 0,
+  ZustandStart = 1,
+  ZustandPause = 2,
+  ZustandWeiter = 3,
+} Trainingsmeldung;
+
+void telefon_melde_zustand(Trainingsmeldung was, uint8_t art, uint32_t beginn);

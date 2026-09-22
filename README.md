@@ -11,6 +11,15 @@ Zusammenhängen.
 
 ## Was sie zeigt
 
+| emery | flint | gabbro |
+|---|---|---|
+| ![Laufschirm auf emery](bildschirm_emery.png) | ![Laufschirm auf flint](bildschirm_flint.png) | ![Laufschirm auf gabbro](bildschirm_gabbro.png) |
+| 200×228, Farbe | 144×168, schwarzweiss | 260×260, rund |
+
+Derselbe Schirm auf allen dreien, und das ist nicht selbstverstaendlich: auf
+flint fiel das dritte Feld urspruenglich unten aus dem Bild, auf gabbro stand
+der Block zu weit oben und liess die breiteste Stelle des Kreises leer.
+
 | | |
 |---|---|
 | **Zeit** | gross, in der Mitte — das ist die Zahl, die man im Laufen liest |
@@ -85,6 +94,7 @@ Archiv nicht füllen.
 | `PULS_MITTEL` | 10006 | |
 | `PULS_MAX` | 10007 | |
 | `MAXPULS` | 10008 | **hinein**, aus der Konfigseite |
+| `ZUSTAND` | 10009 | 0 Stop, 1 Start, 2 Pause, 3 Weiter |
 
 Die Nummern ergeben sich aus der Reihenfolge der `messageKeys` in der
 `package.json`, beginnend bei 10000. **Wer dort eine Zeile dazwischenschiebt,
@@ -97,6 +107,38 @@ Zeile macht aus jedem gespeicherten Wandern rückwirkend ein Krafttraining.
 **Kein `companionApp`-Eintrag in der `package.json`.** Ein Paketname dort
 schaltet die Pebble-App auf PebbleKit2 um — und damit fällt der klassische
 Nebenempfänger weg, über den Kiesel-Helper überhaupt erst mithört.
+
+## Die Strecke zeichnet das Telefon auf
+
+Die Uhr hat **kein GPS**. Wo jemand gelaufen ist, weiss sie nicht und kann es
+nicht wissen — das Telefon in der Tasche weiss es.
+
+Damit es das kann, muss es wissen, **dass** gerade ein Training läuft. Deshalb
+geht ab 0.2.0 bei jedem Tastendruck eine kurze Meldung hinaus:
+
+| Was auf der Uhr | `ZUSTAND` | Was das Telefon tut |
+|---|---|---|
+| Start | 1 | Aufzeichnung an |
+| Pause | 2 | Aufzeichnung aus |
+| Weiter | 3 | Aufzeichnung an, dieselbe Datei |
+| Stop | 0 | Aufzeichnung aus, Strecke an die Sitzung |
+
+**Der Beginn muss schon in der Startmeldung mit.** Das Telefon legt die
+Spurdatei unter diesem Zeitpunkt ab; erführe es ihn erst mit der
+Zusammenfassung, hätte es die Punkte unter einem anderen Namen gesammelt.
+
+**Das Ende steht in derselben Nachricht wie die Zusammenfassung**, nicht
+daneben. Der Postausgang fasst genau eine Nachricht; eine zweite gleich
+dahinter fiele still mit `BUSY` aus — und das Telefon zeichnete weiter auf,
+nachdem das Training längst vorbei ist.
+
+**Die Zustandsmeldungen fassen nicht nach, die Zusammenfassung schon.** Geht
+ein Start verloren, fehlt die Strecke — ärgerlich, aber nicht schlimm. Geht die
+Zusammenfassung verloren, ist das Training weg; die wartet deshalb und
+versucht es erneut.
+
+Die Uhr weiss von alldem nichts weiter. Sie misst und meldet; was daraus wird,
+entscheidet [Kiesel-Helper](https://github.com/dysseus-pascal/Kiesel-Helper).
 
 ## Bauen
 
@@ -117,8 +159,14 @@ weder einen Sensor noch einen Tastendruck von aussen.
 
 ## Was sie nicht tut
 
-**Keine Karte, keine Route, kein Höhenprofil.** Die Pebble hat kein GPS; alles
-davon käme ohnehin vom Telefon. Das ist ein eigenes Projekt und steht noch aus.
+**Keine Karte auf der Uhr.** Kartenkacheln, Zoom und Speicherverwaltung auf
+128 KB RAM wären ein eigenes Projekt — und auf 200×228 Punkten sähe man
+nichts, was man auf dem Telefon nicht besser sieht. Die Strecke wird seit
+0.2.0 vom Telefon aufgezeichnet und dort auch gezeigt: die Uhr misst, das
+Telefon zeigt.
+
+**Keine Navigation, kein Zurückfinden.** Dafür gibt es
+[Kieselstrasse](https://github.com/dysseus-pascal/Kieselstrasse).
 
 ## Lizenz
 
