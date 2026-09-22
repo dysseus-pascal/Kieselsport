@@ -32,14 +32,15 @@ Zufallszahl — die Hand am Lenker wackelt — und eine Distanz kann die Uhr ohn
 GPS nur aus Schritten schätzen; beim Krafttraining ist beides sinnlos. Jede Art
 trägt deshalb mit, was sie kann:
 
-| | Schritte | Distanz | Kalorien |
-|---|---|---|---|
-| Laufen | ja | ja | ja |
-| Bike Strasse/Gravel | — | — | ja |
-| Wandern | ja | ja | ja |
-| Kraft | — | — | ja |
-| Bike MTB | — | — | ja |
-| Yoga | — | — | ja |
+| | Schritte | Distanz | Kalorien | eigenes |
+|---|---|---|---|---|
+| Laufen | ja | ja | ja | |
+| Bike Strasse/Gravel | — | — | ja | |
+| Wandern | ja | ja | ja | |
+| Kraft | — | — | ja | **Sätze, Wiederholungen, Pause** |
+| Bike MTB | — | — | ja | |
+| Yoga | — | — | ja | |
+| Schwimmen | — | — | ja | **Bahnen, und daraus die Strecke** |
 
 Kalorien gelten überall: sie hängen am Puls und an der Bewegung, nicht an
 Schritten.
@@ -83,11 +84,81 @@ dürfte sonst ein Training kosten.
 Ein Training unter einer Minute wird verworfen — ein Fehlgriff im Menü soll das
 Archiv nicht füllen.
 
+## Krafttraining: Sätze ohne Knopfdruck
+
+Wer eine Hantel hält, drückt keine Taste. Die Uhr merkt deshalb selbst, was
+läuft:
+
+* **Wiederholungen** aus der Bewegung des Handgelenks — 25 Messungen je
+  Sekunde, Schwerkraft abgezogen, und gezählt wird nur, was vorher unten
+  *war*. Ein Schmitt-Trigger, keine blosse Schwelle: sonst zählte ein Zittern
+  an der Grenze zwanzig Wiederholungen in einer Sekunde.
+* **Ein Satz ist zu Ende**, wenn vier Sekunden lang nichts mehr passiert, und
+  der nächste beginnt mit der nächsten Bewegung. Vier, weil kurzes Absetzen
+  mitten im Satz vorkommt.
+* **Die Pause läuft mit** und die Uhr brummt einmal, wenn sie um ist. Das ist
+  der eine Dienst, den hier nur die Uhr leisten kann: man hat die Hantel in
+  der Hand und schaut nirgendwo hin.
+
+**Die grosse Zahl ist nicht die Zeit.** Während eines Satzes stehen dort die
+Wiederholungen, danach die Pause; die Gesamtzeit rutscht klein daneben. Was
+man im Studio wissen will, wechselt alle vierzig Sekunden — der Schirm zeigt,
+was gerade gilt.
+
+**Das Zählen ist eine Schätzung, und das steht auch in der App.** Bei Curls,
+Bankdrücken und Schulterdrücken bewegt sich das Handgelenk mit jeder
+Wiederholung; bei Kniebeugen mit der Stange im Nacken bewegt es sich kaum, und
+dann zählt die Uhr zu wenig oder nichts. **Die Pause dagegen misst sie
+zuverlässig** — dafür muss sie nur merken, dass nichts mehr geschieht. Sie ist
+auch die Zahl, die über das Ergebnis entscheidet.
+
+Wie deutlich eine Bewegung sein muss, steht in den Einstellungen (träge /
+normal / fein). Diese Schwelle hängt an der Übung, am Gewicht und daran, wie
+jemand sich bewegt; eine fest eingebaute Zahl wäre geraten und nicht
+nachstellbar.
+
+## Schwimmen: Bahnen ohne GPS
+
+Ein Becken hat eine Achse. Man schwimmt sie hinunter und wieder hinauf, und
+bei jeder Wende dreht sich die Richtung um 180 Grad. **Wer die
+Richtungswechsel zählt, zählt Bahnen** — mit dem Magnetometer, das unter
+Wasser arbeitet, wo GPS nichts empfängt.
+
+Mal der **Beckenlänge** aus den Einstellungen ergibt das eine Strecke: die
+einzige in dieser App, die ohne GPS entsteht.
+
+Warum nicht der Beschleunigungsmesser: der sieht Züge, keine Wenden, und eine
+Wende ist beim Kraulen kaum von einem kräftigen Zug zu unterscheiden. Die
+Richtung dagegen ist eindeutig — sie ist entweder die eine oder die andere.
+
+**Der Kompass muss nicht nach Norden zeigen.** Gezählt wird der *Wechsel*
+zwischen zwei Richtungen, nicht die Richtung selbst; die Achse ist einfach
+die, in die zuerst geschwommen wurde. In einer Halle voller Stahl zeigt ein
+Magnetometer ohnehin irgendwohin, und das macht hier nichts.
+
+Drei Vorkehrungen, und jede steht für einen Fehler, den man sonst im Protokoll
+fände:
+
+* **Als Vektor gemittelt, nicht als Zahl.** Der Mittelwert aus 350 und 10 Grad
+  ist 0 und nicht 180 — wer Winkel wie Zahlen mittelt, bekommt bei jedem
+  Nulldurchgang eine Wende, die es nicht gab.
+* **120 Grad statt 90**, damit ein Schlenker nicht schon eine Wende ist, und
+  **frühestens nach acht Sekunden** — schneller wendet niemand.
+* **Zehn Sekunden Einschwingen** am Anfang: so lange sucht die Uhr die Achse
+  und zählt nichts.
+
+Ist der Kompass nicht bereit, sagt der Schirm das, statt eine Null zu zeigen.
+Eine Null bei den Bahnen sähe aus wie »du bist noch keine geschwommen«.
+
+**Was im Wasser nicht zu trauen ist: der Puls.** Ein optischer Sensor misst
+durch Wasser zwischen Haut und Glas schlecht; die Zahl steht da, aber sie ist
+weicher als an Land. Die Bahnen sind davon unberührt.
+
 ## Was sie schickt
 
 | Feld | Nummer | Bedeutung |
 |---|---|---|
-| `ART` | 10000 | 0 Laufen, 1 Strasse/Gravel, 2 Wandern, 3 Kraft, 4 MTB, 5 Yoga |
+| `ART` | 10000 | 0 Laufen, 1 Strasse/Gravel, 2 Wandern, 3 Kraft, 4 MTB, 5 Yoga, 6 Schwimmen |
 | `BEGINN` | 10001 | Unix-Sekunden |
 | `DAUER` | 10002 | Sekunden ohne Pausen |
 | `SCHRITTE` | 10003 | |
@@ -97,6 +168,20 @@ Archiv nicht füllen.
 | `PULS_MAX` | 10007 | |
 | `MAXPULS` | 10008 | **hinein**, aus der Konfigseite |
 | `ZUSTAND` | 10009 | 0 Stop, 1 Start, 2 Pause, 3 Weiter |
+| `BECKEN` | 10010 | **hinein**, Beckenlänge in Metern |
+| `PAUSENZIEL` | 10011 | **hinein**, Sekunden bis zum Brummen |
+| `EMPFIND` | 10012 | **hinein**, 1 träge, 2 normal, 3 fein |
+| `SAETZE` | 10013 | Kraft |
+| `REPS` | 10014 | Kraft, alle Wiederholungen |
+| `BAHNEN` | 10015 | Schwimmen |
+| `ABSCHNITTE` | 10016 | `beginn:anzahl:dauer;…`, je Satz oder Bahn |
+
+**Die Abschnittsliste ist das, was den Tag später erklärt.** »4 Sätze« sagt
+wenig, »12/10/8/8 mit 90 Sekunden dazwischen« sagt alles — und auf dem
+Telefon wird jeder Abschnitt ein eigener Eintrag in der Gesundheitsakte:
+ein Satz beim Krafttraining, eine Bahn beim Schwimmen. Zwanzig stehen
+einzeln da; was darüber hinausgeht, zählt weiter mit, aber nicht mehr
+namentlich.
 
 Die Nummern ergeben sich aus der Reihenfolge der `messageKeys` in der
 `package.json`, beginnend bei 10000. **Wer dort eine Zeile dazwischenschiebt,
@@ -185,6 +270,11 @@ weder einen Sensor noch einen Tastendruck von aussen.
 nichts, was man auf dem Telefon nicht besser sieht. Die Strecke wird seit
 0.2.0 vom Telefon aufgezeichnet und dort auch gezeigt: die Uhr misst, das
 Telefon zeigt.
+
+**Kein Zählen der Züge und keine Lagenerkennung.** Wie viele Züge eine Bahn
+brauchte und ob es Brust oder Kraul war, liesse sich aus dem
+Beschleunigungsmesser vielleicht herauslesen — vielleicht auch nicht. Solange
+ich es nicht im Wasser geprüft habe, steht es nicht drin.
 
 **Keine Navigation, kein Zurückfinden.** Dafür gibt es
 [Kieselstrasse](https://github.com/dysseus-pascal/Kieselstrasse).

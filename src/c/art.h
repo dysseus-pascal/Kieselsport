@@ -28,6 +28,7 @@ typedef enum {
   ArtKraft,
   ArtMTB,
   ArtYoga,
+  ArtSchwimmen,
   ArtAnzahl,
 } Sportart;
 
@@ -37,7 +38,8 @@ typedef struct {
   const char *gruppe;  //< Obertitel im Menü, oder NULL
   bool schritte;       //< Schritte zählen sinnvoll?
   bool distanz;        //< Strecke aus Schritten ableitbar?
-  bool erholung;       //< Erholungszeit zwischen Sätzen anbieten?
+  bool reps;           //< Wiederholungen und Pausen zählen?
+  bool bahnen;         //< Bahnen über den Kompass zählen?
 } ArtInfo;
 
 const ArtInfo *art_info(Sportart art);
@@ -45,5 +47,5 @@ const ArtInfo *art_info(Sportart art);
 // Der Name, auch für eine Art ausserhalb des Bereichs (dann "?").
 const char *art_name(Sportart art);
 
-// Der Obertitel im Menü - "Velo" bei den dreien, sonst NULL.
+// Der Obertitel im Menü - "Bike" bei den beiden, sonst NULL.
 const char *art_gruppe(Sportart art);

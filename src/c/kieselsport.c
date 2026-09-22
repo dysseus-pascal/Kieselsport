@@ -67,8 +67,13 @@ static void prv_init(void) {
   window_stack_push(s_menue, true);
 
 #ifdef KS_DEMO
-  // Gleich hinein: im Emulator laesst sich keine Taste druecken.
-  lauf_window_zeige(ArtLaufen);
+  // Gleich hinein: im Emulator laesst sich keine Taste druecken. Welche Art,
+  // sagt KS_DEMO_ART - so laesst sich jeder Schirm ansehen, auch der von
+  // Kraft und Schwimmen.
+#ifndef KS_DEMO_ART
+#define KS_DEMO_ART ArtLaufen
+#endif
+  lauf_window_zeige(KS_DEMO_ART);
 #endif
 }
 

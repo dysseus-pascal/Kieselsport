@@ -2,6 +2,9 @@
 #include "training.h"
 #include "puls.h"
 #include "telefon.h"
+#include "reps.h"
+#include "bahnen.h"
+#include "abschnitt.h"
 
 // Der laufende Schirm.
 //
@@ -69,12 +72,45 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   const int zone = puls_zone(puls);
   char text[24];
 
-  // --- Die Zeit, so gross wie moeglich ---
-  prv_zeit(text, sizeof(text), t.dauer_s);
+  // --- Die grosse Zahl ---
+  //
+  // SIE IST NICHT IMMER DIE ZEIT. Beim Krafttraining schaut man waehrend
+  // eines Satzes auf die Wiederholungen und danach auf die Pause - die
+  // Gesamtzeit interessiert erst hinterher. Der Schirm zeigt deshalb, was
+  // gerade gilt, und die Zeit rutscht daneben.
+  const ArtInfo *info = art_info(training_art());
+  const char *gross_name = NULL;
+  if (info->reps) {
+    if (reps_ruht()) {
+      prv_zeit(text, sizeof(text), reps_ruhe_s());
+      gross_name = "Pause";
+    } else {
+      snprintf(text, sizeof(text), "%u", (unsigned)reps_laufend());
+      gross_name = "Wdh.";
+    }
+  } else {
+    prv_zeit(text, sizeof(text), t.dauer_s);
+  }
   graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_LECO_38_BOLD_NUMBERS),
                      GRect(rand, y, breite, 44),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
   y += 42;
+
+  if (gross_name) {
+    // Wofuer die grosse Zahl steht, und daneben die Gesamtzeit - sonst
+    // wuesste man beim Hinschauen nicht, was man liest.
+    char zeit[16];
+    prv_zeit(zeit, sizeof(zeit), t.dauer_s);
+    graphics_context_set_text_color(ctx, GColorDarkGray);
+    graphics_draw_text(ctx, gross_name, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       GRect(rand, y - 4, breite / 2, 18),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    graphics_draw_text(ctx, zeit, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       GRect(rand + breite / 2, y - 4, breite / 2, 18),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    graphics_context_set_text_color(ctx, GColorBlack);
+    y += 14;
+  }
 
   // --- Puls mit Zonenbalken ---
   if (puls > 0) {
@@ -116,11 +152,28 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   // je Reihe - auf flint fiel damit das dritte Feld unten aus dem Schirm.
   // 168 Punkte tragen keine zwei Reihen mehr, 228 schon; also richtet sich
   // die Aufteilung nach der Zahl der Felder und nicht nach einer Annahme.
-  const ArtInfo *info = art_info(training_art());
   const char *namen[3];
   char werte[3][16];
   int felder = 0;
 
+  if (info->reps) {
+    namen[felder] = "Saetze";
+    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)t.saetze);
+    felder++;
+    // NICHT NOCHMAL "Wdh.": das steht schon gross oben. Hier zaehlt das
+    // Training zusammen, dort der laufende Satz.
+    namen[felder] = "Gesamt";
+    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)t.reps);
+    felder++;
+  }
+  if (info->bahnen) {
+    namen[felder] = "Bahnen";
+    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)t.bahnen);
+    felder++;
+    namen[felder] = "m";
+    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)t.meter);
+    felder++;
+  }
   if (info->schritte) {
     // Auf schmalen Spalten abgekuerzt: "Schrit..." sagt weniger als "Schr."
     namen[felder] = (breite / (info->distanz ? 3 : 2)) < 50 ? "Schr." : "Schritte";
@@ -155,6 +208,18 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
                        GRect(kasten.origin.x, kasten.origin.y + 13, kasten.size.w, 28),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   }
+  // --- Was der Kompass noch nicht weiss ---
+  //
+  // LIEBER SAGEN, DASS NICHT GEZAEHLT WIRD, als eine Null zeigen. Eine Null
+  // bei den Bahnen sieht aus wie "du bist noch keine geschwommen".
+  if (info->bahnen && !bahnen_bereit()) {
+    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_draw_text(ctx, "Kompass nicht bereit",
+                       fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       GRect(rand, bounds.size.h - PBL_IF_ROUND_ELSE(56, 40), breite, 18),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+  }
+
   // --- Pause als Zustand, nicht als Meldung ---
   if (training_zustand() == LaufPause) {
     graphics_context_set_text_color(ctx, GColorBlack);

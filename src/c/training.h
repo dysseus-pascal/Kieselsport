@@ -27,6 +27,11 @@ typedef struct {
   uint32_t kcal;
   uint16_t puls_mittel;
   uint16_t puls_max;
+  // NUR BEI DEN ARTEN, DIE SIE HERGEBEN. Bei allen anderen stehen sie auf
+  // null, und null heisst hier: gibt es nicht, nicht "keine gemacht".
+  uint16_t saetze;      //< Kraft
+  uint16_t reps;        //< Kraft, alle Wiederholungen zusammen
+  uint16_t bahnen;      //< Schwimmen
 } Trainingsstand;
 
 void training_init(void);
@@ -48,6 +53,9 @@ void training_tick(void);
 
 // Aktueller Puls, 0 wenn keiner zu haben ist.
 uint16_t training_puls(void);
+
+// Die Sekunden seit dem Start - fuer alles, was Abschnitte zeitlich einordnet.
+uint16_t training_sekunde(void);
 
 // --- Archiv ---
 

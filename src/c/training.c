@@ -1,5 +1,8 @@
 #include "training.h"
 #include "puls.h"
+#include "reps.h"
+#include "bahnen.h"
+#include "abschnitt.h"
 
 // Persist-Schluessel. 1 gehoert dem Maximalpuls (siehe puls.c).
 #define PERSIST_ARCHIV_ANZAHL 10
@@ -51,6 +54,8 @@ void training_init(void) {
   puls_init();
 }
 
+uint16_t training_sekunde(void) { return (uint16_t)s_sekunden; }
+
 void training_beenden_ganz(void) {
   // SICHERHEITSNETZ BEIM BEENDEN DER APP. Wer sie aus dem laufenden Training
   // heraus verlaesst, laesst sonst die dichte Pulsmessung an.
@@ -62,6 +67,7 @@ Sportart training_art(void) { return s_art; }
 
 void training_starte(Sportart art) {
   s_art = art;
+  abschnitt_leeren();
   s_zustand = LaufLaeuft;
   s_beginn = (uint32_t)time(NULL);
   s_sekunden = 0;
@@ -72,6 +78,13 @@ void training_starte(Sportart art) {
   s_puls_messungen = 0;
   s_puls_max = 0;
   puls_dicht_messen();
+
+  // DIE ZAEHLER NUR DORT, WO SIE ETWAS MESSEN. Ein Beschleunigungsmesser,
+  // der beim Laufen mitlaeuft, zaehlte Schritte als Wiederholungen; ein
+  // Kompass beim Krafttraining kostete nur Strom.
+  const ArtInfo *info = art_info(art);
+  if (info->reps) reps_start();
+  if (info->bahnen) bahnen_start();
 }
 
 void training_pause_umschalten(void) {
@@ -79,15 +92,23 @@ void training_pause_umschalten(void) {
     s_zustand = LaufPause;
     // In der Pause reicht der normale Takt - eine Pause ist kein Training.
     puls_normal_messen();
+    reps_pause(true);
+    bahnen_pause(true);
   } else if (s_zustand == LaufPause) {
     s_zustand = LaufLaeuft;
     puls_dicht_messen();
+    reps_pause(false);
+    bahnen_pause(false);
   }
 }
 
 void training_tick(void) {
   if (s_zustand != LaufLaeuft) return;
   s_sekunden++;
+
+  const ArtInfo *info = art_info(s_art);
+  if (info->reps) reps_tick((uint16_t)s_sekunden);
+  if (info->bahnen) bahnen_tick((uint16_t)s_sekunden);
 
   const uint16_t puls = training_puls();
   if (puls > 0) {
@@ -107,9 +128,20 @@ Trainingsstand training_stand(void) {
   };
 
   const ArtInfo *info = art_info(s_art);
+  if (info->reps) {
+    t.saetze = reps_saetze();
+    // Die laufenden zaehlen mit: wer waehrend eines Satzes hinschaut, soll
+    // nicht die Zahl von vorhin sehen.
+    t.reps = (uint16_t)(abschnitt_summe() + reps_laufend());
+  }
+  if (info->bahnen) {
+    t.bahnen = bahnen_anzahl();
+    t.meter = bahnen_meter();
+  }
 #ifdef KS_DEMO
   t.schritte = info->schritte ? s_sekunden * 2 : 0;
-  t.meter = info->distanz ? s_sekunden * 2 : 0;
+  // Beim Schwimmen stehen die Meter schon: Bahnen mal Beckenlaenge.
+  t.meter = info->distanz ? s_sekunden * 2 : t.meter;
   t.kcal = s_sekunden / 6;
   return t;
 #endif
@@ -146,6 +178,11 @@ static void prv_ins_archiv(const Trainingsstand *t) {
 }
 
 Trainingsstand training_stoppe(void) {
+  // ZUERST DIE ZAEHLER SCHLIESSEN, DANN DEN STAND HOLEN: der letzte Satz und
+  // die letzte Bahn entstehen erst beim Abschliessen.
+  const ArtInfo *info = art_info(s_art);
+  if (info->reps) reps_stoppe((uint16_t)s_sekunden);
+  if (info->bahnen) bahnen_stoppe((uint16_t)s_sekunden);
   const Trainingsstand t = training_stand();
   s_zustand = LaufAus;
   puls_normal_messen();
@@ -160,6 +197,9 @@ int training_archiv_anzahl(void) {
 }
 
 bool training_archiv_lesen(int index, Trainingsstand *aus) {
+  // ERST NULLEN. Eintraege aelterer Fassungen sind kuerzer als der heutige
+  // Stand; ohne das stuenden in den neuen Feldern Reste vom Stapel.
+  memset(aus, 0, sizeof(*aus));
   const int anzahl = training_archiv_anzahl();
   if (index < 0 || index >= anzahl) return false;
   const int naechst = persist_exists(PERSIST_ARCHIV_NAECHST)

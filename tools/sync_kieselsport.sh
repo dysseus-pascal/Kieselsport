@@ -35,6 +35,10 @@ cd "$DST" || exit 1
 # kommt einmalig per npm und bleibt dann im Baumverzeichnis liegen.
 [ -d node_modules/@rebble/clay ] || npm install --no-audit --no-fund 2>&1 | tail -1
 
+# Welche Sportart der Pruefbau gleich oeffnet. Kraft und Schwimmen haben
+# eigene Schirme, die sich sonst im Emulator nie zeigen.
+ART="${3:-ArtLaufen}"
+
 case "$MODE" in
   demo)
     # Den Schalter NUR in der Kopie einsetzen. Uebernommen aus SupCycle, wo
@@ -52,7 +56,7 @@ case "$MODE" in
     ANKER="    build_worker = os.path.exists('worker_src')"
     {
       echo "    for _e in ctx.all_envs.values():"
-      echo "        _e.append_value('CFLAGS', ['-DKS_DEMO'])"
+      echo "        _e.append_value('CFLAGS', ['-DKS_DEMO', '-DKS_DEMO_ART=${ART}'])"
       echo ""
       echo "$ANKER"
     } > /tmp/ks_patch.txt
@@ -60,7 +64,7 @@ case "$MODE" in
          $0==anchor{printf "%s", p; next} {print}' wscript > /tmp/ks_wscript
     mv /tmp/ks_wscript wscript
     grep -q "append_value('CFLAGS'" wscript || { echo "FEHLER: Schalter nicht eingesetzt"; exit 1; }
-    echo "Pruefbau mit -DKS_DEMO"
+    echo "Pruefbau mit -DKS_DEMO, Art ${ART}"
     ;;
   "") ;;
   *)  echo "Unbekannter Schalter: $MODE"; exit 1 ;;

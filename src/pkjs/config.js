@@ -1,4 +1,4 @@
-// Die Konfigseite: genau eine Einstellung.
+// Die Konfigseite: Puls, Krafttraining, Schwimmen.
 //
 // DER MAXIMALPULS IST PERSÖNLICH. »220 minus Alter« ist eine Faustformel mit
 // einer Streuung von gut zehn Schlägen nach oben wie unten; aus ihr die Zonen
@@ -34,6 +34,74 @@ module.exports = [
         min: 120,
         max: 220,
         step: 1,
+      },
+    ],
+  },
+  {
+    type: 'section',
+    items: [
+      {
+        type: 'heading',
+        defaultValue: 'Krafttraining',
+      },
+      {
+        type: 'text',
+        defaultValue:
+          'Die Uhr zählt Wiederholungen aus der Bewegung des Handgelenks. ' +
+          'Das ist eine Schätzung: bei Curls und Bankdrücken bewegt es sich ' +
+          'mit jeder Wiederholung, bei Kniebeugen mit der Stange im Nacken ' +
+          'kaum. Die Pause dagegen misst sie zuverlässig.',
+      },
+      {
+        type: 'slider',
+        messageKey: 'PAUSENZIEL',
+        defaultValue: 90,
+        label: 'Pause',
+        description: 'Nach so vielen Sekunden Pause brummt die Uhr einmal. 0 = nie.',
+        min: 0,
+        max: 300,
+        step: 15,
+      },
+      {
+        type: 'select',
+        messageKey: 'EMPFIND',
+        defaultValue: '2',
+        label: 'Empfindlichkeit',
+        description:
+          'Wie deutlich eine Bewegung sein muss, um als Wiederholung zu ' +
+          'zählen. Zählt die Uhr zu viel, stell sie träger; zählt sie zu ' +
+          'wenig, feiner.',
+        options: [
+          { label: 'träge', value: '1' },
+          { label: 'normal', value: '2' },
+          { label: 'fein', value: '3' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'section',
+    items: [
+      {
+        type: 'heading',
+        defaultValue: 'Schwimmen',
+      },
+      {
+        type: 'text',
+        defaultValue:
+          'Bahnen zählt die Uhr über den Kompass: bei jeder Wende dreht sich ' +
+          'die Richtung um 180 Grad. Erst die Beckenlänge macht daraus eine ' +
+          'Strecke — die Uhr kann sie nicht wissen.',
+      },
+      {
+        type: 'slider',
+        messageKey: 'BECKEN',
+        defaultValue: 25,
+        label: 'Beckenlänge',
+        description: 'Meter je Bahn.',
+        min: 10,
+        max: 50,
+        step: 5,
       },
     ],
   },

@@ -1,9 +1,15 @@
 #include "telefon.h"
 #include "puls.h"
+#include "reps.h"
+#include "bahnen.h"
+#include "abschnitt.h"
 
-// Zehn Zahlen plus Kopf. 256 lässt Luft für eine Einstellung mehr.
+// Der Postausgang traegt jetzt auch die Abschnittsliste - bis zu zwanzig
+// Saetze oder Bahnen als Text. 512 reicht dafuer mit Luft; die Liste selbst
+// bricht bei KS_LISTE_MAX ab.
 #define INBOX_SIZE 256
-#define OUTBOX_SIZE 256
+#define OUTBOX_SIZE 512
+#define KS_LISTE_MAX 300
 
 // Ein zweiter Anlauf, falls der Postausgang gerade besetzt ist. Er fasst
 // genau EINE Nachricht; kommt die Zusammenfassung zu dicht hinter etwas
@@ -19,13 +25,23 @@ static void prv_nachfassen(void *data) {
   if (s_hat_wartende) prv_sende_jetzt();
 }
 
+/** Clay schickt Zahlen mal als Zahl, mal als Zeichenkette - beides nehmen. */
+static int32_t prv_zahl(Tuple *t) {
+  return t->type == TUPLE_CSTRING ? atoi(t->value->cstring) : t->value->int32;
+}
+
 static void prv_inbox(DictionaryIterator *iter, void *context) {
   Tuple *max = dict_find(iter, MESSAGE_KEY_MAXPULS);
-  if (max) {
-    const int32_t wert = max->type == TUPLE_CSTRING
-        ? atoi(max->value->cstring) : max->value->int32;
-    puls_setze_maximum((uint16_t)wert);
-  }
+  if (max) puls_setze_maximum((uint16_t)prv_zahl(max));
+
+  Tuple *becken = dict_find(iter, MESSAGE_KEY_BECKEN);
+  if (becken) bahnen_becken_setze((uint16_t)prv_zahl(becken));
+
+  Tuple *ziel = dict_find(iter, MESSAGE_KEY_PAUSENZIEL);
+  if (ziel) reps_pausenziel_setze((uint16_t)prv_zahl(ziel));
+
+  Tuple *empf = dict_find(iter, MESSAGE_KEY_EMPFIND);
+  if (empf) reps_empfindlichkeit_setze((uint8_t)prv_zahl(empf));
 }
 
 static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void *context) {
@@ -53,6 +69,17 @@ static void prv_sende_jetzt(void) {
   dict_write_int32(out, MESSAGE_KEY_KCAL, (int32_t)s_wartet.kcal);
   dict_write_int32(out, MESSAGE_KEY_PULS_MITTEL, (int32_t)s_wartet.puls_mittel);
   dict_write_int32(out, MESSAGE_KEY_PULS_MAX, (int32_t)s_wartet.puls_max);
+  dict_write_int32(out, MESSAGE_KEY_SAETZE, (int32_t)s_wartet.saetze);
+  dict_write_int32(out, MESSAGE_KEY_REPS, (int32_t)s_wartet.reps);
+  dict_write_int32(out, MESSAGE_KEY_BAHNEN, (int32_t)s_wartet.bahnen);
+  // DIE LISTE IST DAS, WAS DEN TAG SPAETER ERKLAERT. "4 Saetze" sagt wenig,
+  // "12/10/8/8 mit 90 Sekunden dazwischen" sagt alles - und auf dem Telefon
+  // wird jeder Abschnitt ein eigener Eintrag in der Gesundheitsakte.
+  if (abschnitt_anzahl() > 0) {
+    static char liste[KS_LISTE_MAX];
+    abschnitt_als_text(liste, sizeof(liste));
+    dict_write_cstring(out, MESSAGE_KEY_ABSCHNITTE, liste);
+  }
   // DAS ENDE STEHT IN DERSELBEN NACHRICHT. Eine eigene Stopmeldung daneben
   // straeubte sich mit dieser um den Postausgang - der fasst genau EINE
   // Nachricht, und die zweite fiele mit BUSY aus.
