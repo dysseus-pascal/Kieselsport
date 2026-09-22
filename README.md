@@ -35,9 +35,12 @@ trägt deshalb mit, was sie kann:
 | | Schritte | Distanz | Kalorien |
 |---|---|---|---|
 | Laufen | ja | ja | ja |
-| Velo | — | — | ja |
+| Velo Strasse | — | — | ja |
 | Wandern | ja | ja | ja |
 | Kraft | — | — | ja |
+| Velo Gravel | — | — | ja |
+| Velo MTB | — | — | ja |
+| Yoga | — | — | ja |
 
 Kalorien gelten überall: sie hängen am Puls und an der Bewegung, nicht an
 Schritten.
@@ -85,7 +88,7 @@ Archiv nicht füllen.
 
 | Feld | Nummer | Bedeutung |
 |---|---|---|
-| `ART` | 10000 | 0 Laufen, 1 Velo, 2 Wandern, 3 Kraft |
+| `ART` | 10000 | 0 Laufen, 1 Strasse, 2 Wandern, 3 Kraft, 4 Gravel, 5 MTB, 6 Yoga |
 | `BEGINN` | 10001 | Unix-Sekunden |
 | `DAUER` | 10002 | Sekunden ohne Pausen |
 | `SCHRITTE` | 10003 | |
@@ -103,6 +106,15 @@ Werte ins falsche Feld.
 
 Dasselbe gilt für die Reihenfolge der Sportarten in `art.c`: eine eingeschobene
 Zeile macht aus jedem gespeicherten Wandern rückwirkend ein Krafttraining.
+
+**Deshalb stehen Gravel und MTB am Ende und nicht neben Strasse**, wo sie
+hingehörten. Die Zahl einer Art darf sich nie verschieben; die Reihenfolge im
+Menü ist der Preis dafür. Was zusammengehört, sagt stattdessen der Obertitel
+»Velo« unter den drei Namen.
+
+Aus »Velo« wurde in 0.3.0 »Strasse« — nur der Name, die Zahl blieb die 1.
+Jede bisher aufgezeichnete Ausfahrt ist damit rückwirkend eine auf der
+Strasse, und das ist die einzige Annahme, die man hier treffen kann.
 
 **Kein `companionApp`-Eintrag in der `package.json`.** Ein Paketname dort
 schaltet die Pebble-App auf PebbleKit2 um — und damit fällt der klassische

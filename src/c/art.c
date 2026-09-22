@@ -4,16 +4,24 @@
 // Wer hier eine Zeile dazwischenschiebt, verschiebt jede gespeicherte
 // Aufzeichnung um eine Art — aus Wandern wird Kraft, rückwirkend.
 static const ArtInfo s_arten[ArtAnzahl] = {
-  // Name        Schritte  Distanz  Erholung
-  { "Laufen",    true,     true,    false },
-  // VELO: Schritte sind hier eine Zufallszahl (die Hand am Lenker wackelt),
-  // und ohne GPS gibt es keine Strecke. Bleiben Zeit, Puls und Kalorien -
-  // wenig, aber wahr.
-  { "Velo",      false,    false,   false },
-  { "Wandern",   true,     true,    false },
+  // Name       Gruppe   Schritte  Distanz  Erholung
+  { "Laufen",   NULL,    true,     true,    false },
+  // DREI ARTEN VELO STATT EINER. "Velo" allein warf zusammen, was nichts
+  // miteinander zu tun hat: eine Ausfahrt auf der Strasse ist ein anderer
+  // Puls, ein anderes Tempo und ein anderes Gelaende als eine Abfahrt im
+  // Wald. Gemeinsam ist ihnen nur, was die Uhr NICHT kann: Schritte sind am
+  // Lenker eine Zufallszahl, und ohne GPS gibt es keine Strecke. Bleiben
+  // Zeit, Puls und Kalorien - wenig, aber wahr.
+  { "Strasse",  "Velo",  false,    false,   false },
+  { "Wandern",  NULL,    true,     true,    false },
   // KRAFT: weder Schritte noch Strecke. Dafuer ist hier die Pause zwischen
   // den Saetzen die Zahl, auf die man schaut.
-  { "Kraft",     false,    false,   true  },
+  { "Kraft",    NULL,    false,    false,   true  },
+  { "Gravel",   "Velo",  false,    false,   false },
+  { "MTB",      "Velo",  false,    false,   false },
+  // YOGA: die Uhr zaehlt hier gar nichts Bewegtes, und das ist richtig so.
+  // Was bleibt, ist der Puls - und der ist bei Yoga die ganze Aussage.
+  { "Yoga",     NULL,    false,    false,   false },
 };
 
 const ArtInfo *art_info(Sportart art) {
@@ -26,4 +34,9 @@ const ArtInfo *art_info(Sportart art) {
 const char *art_name(Sportart art) {
   if (art >= ArtAnzahl) return "?";
   return s_arten[art].name;
+}
+
+const char *art_gruppe(Sportart art) {
+  if (art >= ArtAnzahl) return NULL;
+  return s_arten[art].gruppe;
 }
