@@ -1,0 +1,44 @@
+{
+  "name": "kieselsport",
+  "author": "dysseus-pascal",
+  "version": "0.1.0",
+  "license": "CC0-1.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {
+    "@rebble/clay": "^1.1.0"
+  },
+  "pebble": {
+    "displayName": "Kieselsport",
+    "uuid": "6c386250-a6d7-4a19-a485-52541b5d7c0d",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery",
+      "flint",
+      "gabbro"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": [
+      "configurable"
+    ],
+    "messageKeys": [
+      "ART",
+      "BEGINN",
+      "DAUER",
+      "SCHRITTE",
+      "METER",
+      "KCAL",
+      "PULS_MITTEL",
+      "PULS_MAX",
+      "MAXPULS"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}

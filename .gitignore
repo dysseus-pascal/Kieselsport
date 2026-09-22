@@ -1,0 +1,12 @@
+# Pebble-Build (entsteht in WSL unter ~/kieselsport)
+build/
+.lock-waf*
+node_modules/
+
+# Python-Reste des SDK
+__pycache__/
+*.pyc
+
+# Betriebssystem
+Thumbs.db
+.DS_Store
