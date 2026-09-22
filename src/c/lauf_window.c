@@ -57,7 +57,10 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   const GRect bounds = layer_get_bounds(layer);
   const int16_t rand = PBL_IF_ROUND_ELSE(bounds.size.w / 6, 8);
   const int16_t breite = bounds.size.w - 2 * rand;
-  int16_t y = PBL_IF_ROUND_ELSE(38, 4);
+  // Auf der runden Uhr tiefer anfangen: der Block ist rund 150 Punkte hoch,
+  // auf 260 Punkten stuende er sonst oben und liesse das untere Drittel
+  // leer - und genau dort ist der Kreis am breitesten.
+  int16_t y = PBL_IF_ROUND_ELSE(52, 4);
 
   graphics_context_set_text_color(ctx, GColorBlack);
 
