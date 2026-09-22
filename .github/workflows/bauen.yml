@@ -12,6 +12,8 @@ name: Bauen
 on:
   push:
     branches: [main]
+    # Ein Tag v* ist ein Release: gebaut wird dann aus genau diesem Stand.
+    tags: ['v*']
     paths:
       - 'src/**'
       - 'resources/**'
@@ -63,6 +65,7 @@ jobs:
       # Ein Push mit dem GITHUB_TOKEN loest keinen neuen Lauf aus - die
       # Schleife "bauen, einchecken, bauen" gibt es deshalb nicht.
       - name: Einchecken
+        if: github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -72,4 +75,29 @@ jobs:
           else
             git commit -m "kieselsport.pbw neu gebaut ($(jq -r .version package.json))"
             git push
+          fi
+
+      # EIN TAG IST EIN RELEASE. Gibt es das Release schon - von Hand
+      # angelegt, mit eigenem Text -, wird nur die pbw ersetzt und der Text
+      # nicht angeruehrt. Sonst entsteht es aus dem Commit: die erste Zeile
+      # wird der Titel, der Rest der Text.
+      - name: Release anlegen
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Tag und Fassung im Code muessen uebereinstimmen - sonst hiesse
+          # das Release anders als das, was darin steckt.
+          IM_CODE="$(jq -r .version package.json)"
+          [ "$IM_CODE" = "${TAG#v}" ] || { echo "Tag $TAG, im Code $IM_CODE"; exit 1; }
+          DATEI="kieselsport-${TAG#v}.pbw"
+          cp kieselsport.pbw "$DATEI"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$DATEI" --clobber
+          else
+            git log -1 --format=%b HEAD | sed '/^Co-Authored-By:/d;/^Claude-Session:/d' > notizen.md
+            gh release create "$TAG" "$DATEI" \
+              --title "${TAG#v} - $(git log -1 --format=%s HEAD)" \
+              --notes-file notizen.md
           fi
