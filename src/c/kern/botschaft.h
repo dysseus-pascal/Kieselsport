@@ -21,8 +21,8 @@ enum {
 enum {
   BotStand1 = 1,   //< data0 = zustand | art << 4, data1 = Sekunden, data2 = Puls | frisch << 15
   BotStand2,       //< data0 = Schritte, data1 = Meter / 10, data2 = kcal
-  BotStand3,       //< data0 = Saetze, data1 = Wiederholungen gesamt, data2 = laufende | ruht << 15
-  BotStand4,       //< data0 = Pause in s, data1 = Bahnen, data2 = Kompass bereit | Brummen << 4 | Zone << 8
+  BotStand3,       //< data0 = Saetze (Yoga: HRV in ms), data1 = Wiederholungen gesamt (Yoga: Intervalle), data2 = laufende | ruht << 15
+  BotStand4,       //< data0 = Pause in s, data1 = Bahnen, data2 = Kompass bereit | sparsam << 1 | Brummen << 4 | Zone << 8
   BotStand5,       //< data0 = Beginn hoch, data1 = Beginn tief, data2 = Maximalpuls
   BotFertig,       //< gespeichert - die Zusammenfassung liegt im Persist (wartend.h)
   BotVerworfen,    //< beendet, ohne Zusammenfassung

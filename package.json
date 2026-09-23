@@ -1,7 +1,7 @@
 {
   "name": "kieselsport",
   "author": "dysseus-pascal",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -43,7 +43,10 @@
       "SAETZE",
       "REPS",
       "BAHNEN",
-      "ABSCHNITTE"
+      "ABSCHNITTE",
+      "HRV",
+      "PIN_ART",
+      "PIN_ZEIT"
     ],
     "resources": {
       "media": []

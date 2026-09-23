@@ -94,6 +94,10 @@ static void prv_sende_jetzt(void) {
   dict_write_int32(out, MESSAGE_KEY_SAETZE, (int32_t)s_wartet.saetze);
   dict_write_int32(out, MESSAGE_KEY_REPS, (int32_t)s_wartet.reps);
   dict_write_int32(out, MESSAGE_KEY_BAHNEN, (int32_t)s_wartet.bahnen);
+  // Nur bei Yoga - und nur, wenn genug Schlaege fuer eine Zahl da waren.
+  if (s_wartet.hrv_ms > 0) {
+    dict_write_int32(out, MESSAGE_KEY_HRV, (int32_t)s_wartet.hrv_ms);
+  }
   // DIE LISTE IST DAS, WAS DEN TAG SPAETER ERKLAERT. "4 Saetze" sagt wenig,
   // "12/10/8/8 mit 90 Sekunden dazwischen" sagt alles - und auf dem Telefon
   // wird jeder Abschnitt ein eigener Eintrag in der Gesundheitsakte.

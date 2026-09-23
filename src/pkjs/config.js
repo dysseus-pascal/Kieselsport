@@ -106,6 +106,45 @@ module.exports = [
     ],
   },
   {
+    type: 'section',
+    items: [
+      {
+        type: 'heading',
+        defaultValue: 'Erinnerung in der Timeline',
+      },
+      {
+        type: 'text',
+        defaultValue:
+          'Ein Pin »Training« in der Timeline der Uhr, jeden Tag zur ' +
+          'gewählten Zeit, mit der Aktion »Jetzt starten«. Gesetzt wird er, ' +
+          'wenn die Uhr-App läuft; er gilt für die nächsten sieben Tage.',
+      },
+      {
+        type: 'select',
+        messageKey: 'PIN_ART',
+        defaultValue: '0',
+        label: 'Sportart',
+        options: [
+          { label: 'kein Pin', value: '0' },
+          { label: 'Laufen', value: '1' },
+          { label: 'Strasse/Gravel', value: '2' },
+          { label: 'Wandern', value: '3' },
+          { label: 'Kraft', value: '4' },
+          { label: 'MTB', value: '5' },
+          { label: 'Yoga', value: '6' },
+          { label: 'Schwimmen', value: '7' },
+        ],
+      },
+      {
+        type: 'input',
+        messageKey: 'PIN_ZEIT',
+        defaultValue: '18:00',
+        label: 'Uhrzeit',
+        attributes: { type: 'time' },
+      },
+    ],
+  },
+  {
     type: 'submit',
     defaultValue: 'Speichern',
   },

@@ -97,6 +97,12 @@ static void prv_init(void) {
   // und nicht das Menue.
   if (app_worker_is_running()) {
     lauf_window_zeige_laufend();
+  } else if (launch_reason() == APP_LAUNCH_TIMELINE_ACTION) {
+    // AUS DEM PIN "TRAINING": die Aktion "Jetzt starten" traegt die Art als
+    // Launch-Code (Art + 1, damit 0 "nichts" bleibt). Der Schirm steht dann
+    // bereit; Select startet - wie beim Weg ueber das Menue.
+    const int32_t code = launch_get_args();
+    if (code >= 1 && code <= ArtAnzahl) lauf_window_zeige((Sportart)(code - 1));
   }
 
 #ifdef KS_DEMO

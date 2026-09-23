@@ -32,6 +32,7 @@ typedef struct {
   uint16_t saetze;      //< Kraft
   uint16_t reps;        //< Kraft, alle Wiederholungen zusammen
   uint16_t bahnen;      //< Schwimmen
+  uint16_t hrv_ms;      //< Yoga: RMSSD, 0 wenn nicht gemessen
 } Trainingsstand;
 
 void training_init(void);

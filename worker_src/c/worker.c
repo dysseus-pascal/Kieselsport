@@ -25,6 +25,53 @@
 // Nachrichten in die Leere zu schicken.
 
 static int s_letzte_zone = -1;
+
+// DIE PULSKURVE GEHT UEBER DATA LOGGING ANS TELEFON - der eine Weg, den ein
+// Worker dorthin hat. Jede Sekunde ein Satz: Beginn des Trainings (damit das
+// Telefon weiss, wozu er gehoert), Sekunde, Puls (0 = kein frischer Wert).
+// Die Uhr sammelt, das Telefon holt ab, sobald es erreichbar ist - auch
+// Stunden spaeter. Kiesel-Helper macht daraus die Kurve in der Akte.
+#define LOG_TAG_PULS 1
+typedef struct __attribute__((packed)) {
+  uint32_t beginn;
+  uint16_t sekunde;
+  uint16_t puls;
+} Pulssatz;
+static DataLoggingSessionRef s_log;
+
+static void prv_log_start(void) {
+  if (s_log) return;
+  s_log = data_logging_create(LOG_TAG_PULS, DATA_LOGGING_BYTE_ARRAY, sizeof(Pulssatz), true);
+}
+
+static void prv_log_stop(void) {
+  if (!s_log) return;
+  data_logging_finish(s_log);
+  s_log = NULL;
+}
+
+static void prv_log_puls(void) {
+  if (!s_log) return;
+  const Trainingsstand t = training_stand();
+  Pulssatz satz = {
+    .beginn = t.beginn,
+    .sekunde = (uint16_t)t.dauer_s,
+    .puls = training_puls_frisch() ? training_puls() : 0,
+  };
+  data_logging_log(s_log, &satz, 1);
+}
+
+// AKKU: unter KS_AKKU_SPARSAM Prozent misst der Puls seltener. Beim Start
+// und jede Minute nachgesehen, nicht jede Sekunde - der Stand aendert sich
+// nicht schneller.
+static void prv_akku_pruefen(void) {
+  const BatteryChargeState b = battery_state_service_peek();
+  const bool sparsam = !b.is_plugged && b.charge_percent < KS_AKKU_SPARSAM;
+  if (sparsam != puls_sparsam()) {
+    puls_setze_sparsam(sparsam);
+    if (training_zustand() == LaufLaeuft) puls_dicht_messen();
+  }
+}
 static uint8_t s_abo_alter_s = 255;
 // Was die App brummen soll, und seit wann es faellig ist. Bleibt stehen,
 // bis eine zuschauende App es bekommen hat - hoechstens ein paar Sekunden,
@@ -50,9 +97,15 @@ static void prv_stand_senden(void) {
   m.data2 = bot_kappe(t.kcal);
   app_worker_send_message(BotStand2, &m);
 
-  m.data0 = t.saetze;
-  m.data1 = t.reps;
-  m.data2 = (uint16_t)(reps_laufend() | (reps_ruht() ? 0x8000 : 0));
+  if (training_art() == ArtYoga) {
+    m.data0 = t.hrv_ms;
+    m.data1 = puls_hrv_anzahl();
+    m.data2 = 0;
+  } else {
+    m.data0 = t.saetze;
+    m.data1 = t.reps;
+    m.data2 = (uint16_t)(reps_laufend() | (reps_ruht() ? 0x8000 : 0));
+  }
   app_worker_send_message(BotStand3, &m);
 
   uint8_t brumm = BrummNichts;
@@ -63,7 +116,7 @@ static void prv_stand_senden(void) {
   }
   m.data0 = reps_ruhe_s();
   m.data1 = t.bahnen;
-  m.data2 = (uint16_t)((bahnen_bereit() ? 1 : 0) | (brumm << 4) | (zone << 8));
+  m.data2 = (uint16_t)((bahnen_bereit() ? 1 : 0) | (puls_sparsam() ? 2 : 0) | (brumm << 4) | (zone << 8));
   app_worker_send_message(BotStand4, &m);
 
   m.data0 = (uint16_t)(t.beginn >> 16);
@@ -100,6 +153,10 @@ static void prv_zonenwechsel(void) {
 static void prv_tick(struct tm *zeit, TimeUnits einheiten) {
   if (training_zustand() == LaufAus) return;
   training_tick();
+  if (training_zustand() == LaufLaeuft) {
+    prv_log_puls();
+    if (zeit->tm_sec == 0) prv_akku_pruefen();
+  }
   prv_zonenwechsel();
   if (s_abo_alter_s < 255) s_abo_alter_s++;
   if (s_abo_alter_s <= KS_ABO_S) prv_stand_senden();
@@ -113,11 +170,14 @@ static void prv_starten_nach_bestellung(void) {
   persist_delete(PERSIST_START_ART);
   persist_delete(PERSIST_START_BEGINN);
   s_letzte_zone = -1;
+  prv_akku_pruefen();
   training_starte_ab(art, beginn);
+  prv_log_start();
   APP_LOG(APP_LOG_LEVEL_INFO, "Training gestartet: Art %d", (int)art);
 }
 
 static void prv_speichern(void) {
+  prv_log_stop();
   const Trainingsstand t = training_stoppe();
   AppWorkerMessage leer = { 0, 0, 0 };
   // EIN TRAINING UNTER EINER MINUTE IST KEINES - es geht nicht ans Telefon.
@@ -157,6 +217,7 @@ static void prv_befehl(uint16_t typ, AppWorkerMessage *daten) {
       prv_speichern();
       break;
     case BefehlVerwerfen:
+      prv_log_stop();
       training_verwerfen();
       app_worker_send_message(BotVerworfen, &leer);
       break;
@@ -173,6 +234,7 @@ static void prv_init(void) {
 }
 
 static void prv_ende(void) {
+  prv_log_stop();
   tick_timer_service_unsubscribe();
   app_worker_message_unsubscribe();
   // Wird der Worker beendet, waehrend ein Training laeuft, bleibt sonst die

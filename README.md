@@ -100,6 +100,33 @@ steht ein Fragezeichen am Eimer. Drei Tasten mit drei Bedeutungen, die vom
 Zustand abhängen, merkt sich niemand — und ein Fehlgriff kostete früher ein
 Training. Was eine Taste gerade nicht tut, steht auch nicht da.
 
+### Was die Uhr sonst noch kann
+
+Seit 0.9.0 nutzt Kieselsport, was das SDK an Nützlichem hergibt:
+
+- **Die Pulskurve geht per Data Logging ans Telefon.** Der Worker schreibt
+  jede Sekunde einen Satz (Beginn, Sekunde, Puls); die Uhr sammelt, das Telefon
+  holt ab, sobald es erreichbar ist — auch Stunden später. Kiesel-Helper macht
+  daraus eine Pulskurve zum Training in der Gesundheitsakte. Es ist der eine
+  Weg, den ein Hintergrund-Worker zum Telefon hat.
+- **Ohne Telefon keine Strecke, und der Schirm sagt es** vor dem Start
+  (`connection_service_peek_pebble_app_connection`), solange die Art eine
+  Strecke hätte. Danach wäre es zu spät.
+- **Akku unter 20 %: Puls alle fünf Sekunden** statt jede — der Schirm sagt es.
+  Ein Training mit leerer Uhr ist keines.
+- **Yoga misst HRV.** Statt Zonen zählt dort die Herzratenvariabilität: die Uhr
+  bittet den Sensor um die Schlagabstände (PPI) und rechnet den RMSSD, wie
+  Herzintervall es nachts tut; Ausreisser über ein Drittel fallen weg, unter
+  dreissig Intervallen gibt es keine Zahl. Der Wert geht mit der
+  Zusammenfassung ans Telefon (`HRV`).
+- **Ein Pin »Training« in der Timeline** mit der Aktion »Jetzt starten«:
+  Sportart und Uhrzeit auf der Konfigseite. Gesetzt wird er, wenn die Uhr-App
+  läuft, für sieben Tage voraus; die Aktion öffnet die App mit der Art als
+  Launch-Code, und der Schirm steht bereit.
+- **Der laufende Schirm weicht der Timeline-Schnellansicht aus**
+  (`layer_get_unobstructed_bounds`): fährt sie von unten herein, rücken Puls
+  und Zone mit nach oben.
+
 ### Das Timeline-Design
 
 Seit 0.7.0 sieht Kieselsport aus wie Drinktervall und Flynformer: weisser

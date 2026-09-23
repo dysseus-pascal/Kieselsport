@@ -13,8 +13,17 @@
 // eingebaute Workout-App misst - und ein Training ist die eine Stunde am
 // Tag, in der der Akku dafür da ist.
 #define TAKT_TRAINING_S 1
+#define TAKT_SPARSAM_S 5
 
 static uint16_t s_maximum = MAXPULS_VORGABE;
+static bool s_sparsam = false;
+
+void puls_setze_sparsam(bool sparsam) {
+  if (sparsam == s_sparsam) return;
+  s_sparsam = sparsam;
+}
+
+bool puls_sparsam(void) { return s_sparsam; }
 
 // Die Grenzen in Prozent des Maximums. Die übliche Fünferteilung; sie ist
 // Konvention, keine Physiologie, aber jeder Trainingsplan spricht in ihr.
@@ -55,10 +64,71 @@ int puls_zone(uint16_t bpm) {
 static time_t s_frisch_seit = 0;   // letzte Meldung des Sensors oder Wertwechsel
 static uint16_t s_letzter = 0;
 
+// --- HRV ---
+//
+// RMSSD = Wurzel aus dem Mittel der quadrierten Differenzen aufeinander
+// folgender Intervalle. Gezaehlt wird laufend: Summe und Anzahl, die Wurzel
+// erst am Ende. Ein Ausreisser - ein Intervall, das um mehr als ein Drittel
+// vom vorigen abweicht - ist ein verpasster Schlag, kein Herz, und faellt
+// weg; sonst zoege ein einziger 1800er den Wert ins Absurde.
+static bool s_hrv_an = false;
+static uint16_t s_hrv_vorher = 0;
+static uint32_t s_hrv_summe = 0;   // Summe der quadrierten Differenzen
+static uint16_t s_hrv_anzahl = 0;
+
+static void prv_hrv_intervall(uint16_t ppi) {
+  if (ppi < 300 || ppi > 2000) return;
+  if (s_hrv_vorher != 0) {
+    const int d = (int)ppi - (int)s_hrv_vorher;
+    const int grenze = (int)s_hrv_vorher / 3;
+    if (d > -grenze && d < grenze) {
+      if (s_hrv_summe < 0xF0000000u) {
+        s_hrv_summe += (uint32_t)(d * d);
+        if (s_hrv_anzahl < 0xFFFF) s_hrv_anzahl++;
+      }
+    }
+  }
+  s_hrv_vorher = ppi;
+}
+
+static uint32_t prv_wurzel(uint32_t x) {
+  uint32_t r = 0, bit = 1u << 30;
+  while (bit > x) bit >>= 2;
+  while (bit) {
+    if (x >= r + bit) { x -= r + bit; r = (r >> 1) + bit; } else r >>= 1;
+    bit >>= 2;
+  }
+  return r;
+}
+
+void puls_hrv_start(void) {
+  s_hrv_vorher = 0;
+  s_hrv_summe = 0;
+  s_hrv_anzahl = 0;
+  s_hrv_an = health_service_set_hrv_sample_period(1);
+}
+
+void puls_hrv_stop(void) {
+  if (s_hrv_an) health_service_set_hrv_sample_period(0);
+  s_hrv_an = false;
+}
+
+uint16_t puls_hrv_rmssd(void) {
+  // Unter dreissig Intervallen ist es Rauschen, keine Messung.
+  if (s_hrv_anzahl < 30) return 0;
+  return (uint16_t)prv_wurzel(s_hrv_summe / s_hrv_anzahl);
+}
+
+uint16_t puls_hrv_anzahl(void) { return s_hrv_anzahl; }
+
 static void prv_ereignis(HealthEventType ereignis, void *context) {
   // Der Sensor meldet sich bei jeder neuen Messung - auch wenn der Wert
   // derselbe ist. Das ist das verlaesslichere Zeichen fuer "frisch".
   if (ereignis == HealthEventHeartRateUpdate) s_frisch_seit = time(NULL);
+  if (ereignis == HealthEventHRVUpdate && s_hrv_an) {
+    const uint16_t ppi = health_service_peek_hrv_ppi_ms();
+    if (ppi) prv_hrv_intervall(ppi);
+  }
 }
 
 void puls_beobachten(void) {
@@ -96,7 +166,7 @@ bool puls_frisch(void) {
 }
 
 void puls_dicht_messen(void) {
-  health_service_set_heart_rate_sample_period(TAKT_TRAINING_S);
+  health_service_set_heart_rate_sample_period(s_sparsam ? TAKT_SPARSAM_S : TAKT_TRAINING_S);
 }
 
 void puls_normal_messen(void) {

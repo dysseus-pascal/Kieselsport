@@ -56,6 +56,8 @@ static struct {
   bool ruht;
   uint16_t ruhe_s, bahnen;
   bool kompass;
+  bool sparsam;      //< Akku schwach: Puls nur alle fuenf Sekunden
+  uint16_t hrv_ms, hrv_n;  //< Yoga
   int zone;
   uint32_t beginn;
 } s;
@@ -88,7 +90,10 @@ static void prv_text(GContext *ctx, const char *text, const char *schrift, GRect
 }
 
 static void prv_zeichne(Layer *layer, GContext *ctx) {
-  const GRect bounds = layer_get_bounds(layer);
+  // DIE UNVERDECKTE FLAECHE, nicht die ganze: faehrt die Timeline-
+  // Schnellansicht von unten herein, schrumpft der Schirm - und Puls und
+  // Zone ruecken mit nach oben, statt darunter zu verschwinden.
+  const GRect bounds = layer_get_unobstructed_bounds(layer);
   const int16_t rand = KS_RAND;
   // Die Spalte links von der Leiste; auf der runden Uhr mit viel Luft, weil
   // der Kreis die Ecken nimmt.
@@ -234,6 +239,12 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   char werte[3][16];
   int felder = 0;
 
+  if (s_art == ArtYoga && !s_bereit) {
+    namen[felder] = "HRV ms";
+    if (s.hrv_ms > 0) snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.hrv_ms);
+    else snprintf(werte[felder], sizeof(werte[0]), "…");
+    felder++;
+  }
   if (info->reps) {
     namen[felder] = "Saetze";
     snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.saetze);
@@ -305,9 +316,17 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     fuss = "Oben speichert, Unten verwirft";
   } else if (s_bereit) {
     mitte = SymbolStart;
+    // OHNE TELEFON KEINE STRECKE: das Telefon zeichnet sie auf, die Uhr hat
+    // kein GPS. Wer das vor dem Start liest, kann das Telefon holen - danach
+    // ist es zu spaet.
+    if (info->distanz && !connection_service_peek_pebble_app_connection()) {
+      fuss = "Kein Telefon: keine Strecke";
+    }
   } else {
     mitte = SymbolPause;
-    if (info->bahnen && !s.kompass) {
+    if (s.sparsam) {
+      fuss = "Akku schwach: Puls alle 5 s";
+    } else if (info->bahnen && !s.kompass) {
       // LIEBER SAGEN, DASS NICHT GEZAEHLT WIRD, als eine Null zeigen. Eine
       // Null bei den Bahnen sieht aus wie "du bist noch keine geschwommen".
       fuss = "Kompass nicht bereit";
@@ -413,15 +432,21 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
       s.kcal = d->data2;
       break;
     case BotStand3:
-      s.saetze = d->data0;
-      s.reps = d->data1;
-      s.laufend = d->data2 & 0x7FFF;
-      s.ruht = (d->data2 & 0x8000) != 0;
+      if (s_art == ArtYoga) {
+        s.hrv_ms = d->data0;
+        s.hrv_n = d->data1;
+      } else {
+        s.saetze = d->data0;
+        s.reps = d->data1;
+        s.laufend = d->data2 & 0x7FFF;
+        s.ruht = (d->data2 & 0x8000) != 0;
+      }
       break;
     case BotStand4:
       s.ruhe_s = d->data0;
       s.bahnen = d->data1;
-      s.kompass = (d->data2 & 0x0F) != 0;
+      s.kompass = (d->data2 & 0x01) != 0;
+      s.sparsam = (d->data2 & 0x02) != 0;
       s.zone = d->data2 >> 8;
       prv_brummen((d->data2 >> 4) & 0x0F);
       break;
@@ -515,6 +540,10 @@ static void prv_tasten(void *context) {
 
 // --- Fenster ---
 
+static void prv_verdeckt(AnimationProgress fortschritt, void *context) {
+  if (s_flaeche) layer_mark_dirty(s_flaeche);
+}
+
 static void prv_laden(Window *fenster) {
   Layer *wurzel = window_get_root_layer(fenster);
   const GRect bounds = layer_get_bounds(wurzel);
@@ -522,9 +551,14 @@ static void prv_laden(Window *fenster) {
   s_flaeche = layer_create(bounds);
   layer_set_update_proc(s_flaeche, prv_zeichne);
   layer_add_child(wurzel, s_flaeche);
+  // Neu zeichnen, waehrend die Schnellansicht hereinfaehrt.
+  unobstructed_area_service_subscribe((UnobstructedAreaHandlers) {
+    .change = prv_verdeckt,
+  }, NULL);
 }
 
 static void prv_entladen(Window *fenster) {
+  unobstructed_area_service_unsubscribe();
   if (s_abo) { app_timer_cancel(s_abo); s_abo = NULL; }
   if (s_zu) { app_timer_cancel(s_zu); s_zu = NULL; }
   layer_destroy(s_flaeche);

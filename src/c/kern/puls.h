@@ -35,6 +35,27 @@ uint16_t puls_zonengrenze(int zone);
 void puls_dicht_messen(void);
 void puls_normal_messen(void);
 
+// SPARSAM BEI SCHWACHEM AKKU. Unter KS_AKKU_SPARSAM Prozent misst die Uhr im
+// Training alle fünf Sekunden statt jede - eine Stunde Sekundentakt kostet
+// spürbar, und ein Training mit leerer Uhr ist keines. Der Worker liest den
+// Akku beim Start und jede Minute und sagt es hier.
+#define KS_AKKU_SPARSAM 20
+void puls_setze_sparsam(bool sparsam);
+bool puls_sparsam(void);
+
+// --- HRV, für Yoga ---
+//
+// BEI YOGA IST DER PULS NICHT DIE AUSSAGE, die Herzratenvariabilität ist es.
+// Die Uhr misst dann die Abstände zwischen zwei Schlägen (PPI) und rechnet
+// daraus den RMSSD, wie Herzintervall es nachts tut. Nur solange ein Training
+// läuft: HRV misst der Sensor nur auf ausdrückliche Bitte.
+void puls_hrv_start(void);
+void puls_hrv_stop(void);
+// RMSSD in Millisekunden aus dem laufenden Training, 0 wenn zu wenig Schläge.
+uint16_t puls_hrv_rmssd(void);
+// Wie viele Intervalle bisher zählten.
+uint16_t puls_hrv_anzahl(void);
+
 // Den Sensor beobachten, solange ein Training läuft - damit sich sagen
 // lässt, ob ein Wert FRISCH ist oder nur der letzte gute von vorhin.
 //

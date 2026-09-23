@@ -69,6 +69,7 @@ void training_beenden_ganz(void) {
   // SICHERHEITSNETZ BEIM BEENDEN DER APP. Wer sie aus dem laufenden Training
   // heraus verlaesst, laesst sonst die dichte Pulsmessung an.
   puls_normal_messen();
+  puls_hrv_stop();
   puls_ignorieren();
 }
 
@@ -103,6 +104,8 @@ void training_starte_ab(Sportart art, uint32_t beginn) {
   const ArtInfo *info = art_info(art);
   if (info->reps) reps_start();
   if (info->bahnen) bahnen_start();
+  // YOGA MISST HRV. Der Puls bleibt daneben; die Zonen sagen bei Yoga wenig.
+  if (art == ArtYoga) puls_hrv_start();
 }
 
 void training_pause_umschalten(void) {
@@ -162,6 +165,7 @@ Trainingsstand training_stand(void) {
     t.bahnen = bahnen_anzahl();
     t.meter = bahnen_meter();
   }
+  if (s_art == ArtYoga) t.hrv_ms = puls_hrv_rmssd();
 #ifdef KS_DEMO
   t.schritte = info->schritte ? s_sekunden * 2 : 0;
   // Beim Schwimmen stehen die Meter schon: Bahnen mal Beckenlaenge.
@@ -210,6 +214,7 @@ Trainingsstand training_stoppe(void) {
   const Trainingsstand t = training_stand();
   s_zustand = LaufAus;
   puls_normal_messen();
+  puls_hrv_stop();
   puls_ignorieren();
   // EIN TRAINING UNTER EINER MINUTE IST KEINES. Ein Fehlgriff im Menü soll
   // das Archiv nicht mit Eintraegen fuellen, die niemand gemacht hat.
@@ -223,6 +228,7 @@ void training_verwerfen(void) {
   if (info->bahnen) bahnen_stoppe((uint16_t)s_sekunden);
   s_zustand = LaufAus;
   puls_normal_messen();
+  puls_hrv_stop();
   puls_ignorieren();
   abschnitt_leeren();
 }
