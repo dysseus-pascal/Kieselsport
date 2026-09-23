@@ -147,6 +147,15 @@ Druck auf die falsche Taste nichts tun; die Hand am Ärmel trifft die obere
 leicht. Ein Training unter einer Minute wird auch beim Speichern verworfen —
 ein Fehlgriff im Menü soll das Archiv nicht füllen.
 
+**Nach dem Speichern bleibt der Schirm, bis das Telefon bestätigt hat** —
+höchstens zwanzig Sekunden. Der erste Entwurf ging nach zwei Sekunden zu; war
+die Verbindung in diesen zwei Sekunden besetzt, kam die Zusammenfassung erst
+beim nächsten Öffnen der App an, und auf dem Telefon fehlte die Fahrt. Sie
+liegt ohnehin im Persist und geht auch später — aber wer sie jetzt sehen
+will, soll die Uhr nicht nochmal in die Hand nehmen müssen. Der Schirm sagt,
+was los ist: »geht ans Telefon …«, »beim Telefon angekommen« oder »Telefon
+nicht erreichbar, geht beim nächsten Öffnen«.
+
 ### Das Training läuft im Hintergrund
 
 Seit 0.6.0 misst nicht die App, sondern ein **Hintergrund-Worker** — ein

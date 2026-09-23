@@ -112,6 +112,8 @@ static void prv_sende_jetzt(void) {
   app_message_outbox_send();
 }
 
+bool telefon_wartet(void) { return s_hat_wartende; }
+
 void telefon_nachsenden(void) {
   if (!wartend_laden(&s_wartet, s_liste, sizeof(s_liste))) return;
   s_hat_wartende = true;

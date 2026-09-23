@@ -39,7 +39,14 @@ static AppTimer *s_zu;
 static Sportart s_art;
 static bool s_bereit;          //< gewaehlt, aber noch nicht gestartet
 static bool s_speichert;       //< Speichern verlangt, warte auf den Worker
-static bool s_gespeichert;     //< kurz zu sehen, dann zurueck ins Menue
+static bool s_gespeichert;     //< zu sehen, bis das Telefon bestaetigt hat
+static time_t s_gespeichert_seit;
+// So lange wartet der Schirm nach dem Speichern auf die Bestaetigung des
+// Telefons, bevor die App von selbst zugeht. Die Zusammenfassung liegt
+// ohnehin im Persist und geht beim naechsten Oeffnen - aber wer sie JETZT
+// auf dem Telefon sehen will, soll die Uhr nicht erst nochmal in die Hand
+// nehmen muessen.
+#define BESTAETIGUNG_S 20
 static time_t s_verwerfen_bis; //< zweiter Druck auf Unten bis dahin
 static time_t s_gestartet;     //< wann Select gedrueckt wurde
 
@@ -129,7 +136,11 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     prv_text(ctx, "Gespeichert", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
     y += titel_h;
     graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, "geht ans Telefon", KS_BREIT ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14,
+    const bool wartet = telefon_wartet();
+    const bool aufgegeben = wartet && time(NULL) - s_gespeichert_seit >= BESTAETIGUNG_S;
+    prv_text(ctx, aufgegeben ? "Telefon nicht erreichbar,\ngeht beim nächsten Öffnen"
+                 : wartet ? "geht ans Telefon …" : "beim Telefon angekommen",
+             KS_BREIT ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14,
              GRect(rand, y, breite, 22), GTextAlignmentLeft);
     thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
     return;
@@ -402,7 +413,23 @@ static void prv_start(void) {
 
 static void prv_zu(void *data) {
   s_zu = NULL;
-  if (s_fenster) window_stack_remove(s_fenster, true);
+  if (!s_fenster) return;
+  if (s_gespeichert && telefon_wartet()) {
+    if (s_flaeche) layer_mark_dirty(s_flaeche);
+    const time_t seit = time(NULL) - s_gespeichert_seit;
+    // Noch warten - und nach dem Aufgeben den Hinweis zwei Sekunden lang
+    // stehen lassen, damit man ihn liest.
+    if (seit < BESTAETIGUNG_S + 2) {
+      s_zu = app_timer_register(500, prv_zu, NULL);
+      return;
+    }
+  } else if (s_gespeichert && time(NULL) - s_gespeichert_seit < 1) {
+    // Bestaetigt: kurz "angekommen" zeigen, dann zu.
+    if (s_flaeche) layer_mark_dirty(s_flaeche);
+    s_zu = app_timer_register(1200, prv_zu, NULL);
+    return;
+  }
+  window_stack_remove(s_fenster, true);
 }
 
 void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
@@ -458,9 +485,16 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
       // aus geht sie ans Telefon - und faellt nicht mehr weg.
       s_speichert = false;
       s_gespeichert = true;
+      s_gespeichert_seit = time(NULL);
       app_worker_kill();
       telefon_nachsenden();
-      if (!s_zu) s_zu = app_timer_register(1800, prv_zu, NULL);
+      // NICHT NACH ZWEI SEKUNDEN ZUGEHEN. Der erste Entwurf tat das - und
+      // war die Verbindung in diesen zwei Sekunden besetzt, ging die App zu,
+      // bevor der zweite Anlauf kam. Die Zusammenfassung lag dann im Persist
+      // und kam erst beim naechsten Oeffnen der App an, Stunden spaeter,
+      // und auf dem Telefon fehlte die Fahrt. Jetzt bleibt der Schirm, bis
+      // das Telefon bestaetigt hat - oder BESTAETIGUNG_S um sind.
+      if (!s_zu) s_zu = app_timer_register(500, prv_zu, NULL);
       break;
     case BotVerworfen:
       app_worker_kill();

@@ -24,6 +24,8 @@ void telefon_init(void);
 // Die wartende Zusammenfassung aus dem Persist schicken, falls eine da ist.
 // Fasst nach, bis das Telefon sie bestaetigt.
 void telefon_nachsenden(void);
+// Wartet noch eine Zusammenfassung auf die Bestaetigung des Telefons?
+bool telefon_wartet(void);
 
 // Was gerade geschieht - damit das Telefon weiss, wann es mitschreiben soll.
 //
