@@ -95,7 +95,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   const int16_t breite = bounds.size.w - KS_LEISTE_B - rand - 4;
   int16_t y = PBL_IF_ROUND_ELSE(46, 18);
   char text[24];
-  const char *oben = NULL, *mitte = NULL, *unten = NULL;
+  Symbol oben = SymbolKeins, mitte = SymbolKeins, unten = SymbolKeins;
   const char *fuss = NULL;
 
   // Die Uhrzeit oben, klein und mittig: so faengt jeder Timeline-Eintrag an.
@@ -126,7 +126,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
     prv_text(ctx, "geht ans Telefon", KS_BREIT ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14,
              GRect(rand, y, breite, 22), GTextAlignmentLeft);
-    thema_leiste(ctx, bounds, false, GColorWhite, NULL, NULL, NULL);
+    thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
     return;
   }
 
@@ -136,7 +136,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     y += 14 + gross_h;
     graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
     prv_text(ctx, "Hole den Stand …", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
-    thema_leiste(ctx, bounds, false, GColorWhite, NULL, NULL, NULL);
+    thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
     return;
   }
 
@@ -287,25 +287,26 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
 
   // --- Was die Tasten gerade tun ---
   //
-  // DIE LEISTE SAGT ES, auf der Hoehe der Taste, statt es vorauszusetzen.
-  // Drei Tasten mit drei Bedeutungen, die vom Zustand abhaengen - das merkt
-  // sich niemand, und ein Fehlgriff kostete frueher ein Training. Was eine
-  // Taste gerade nicht tut, steht auch nicht da.
+  // DIE LEISTE ZEIGT ES, auf der Hoehe der Taste, als Zeichen statt als
+  // Wort: Dreieck, Balken, Diskette, Eimer. Drei Tasten mit drei
+  // Bedeutungen, die vom Zustand abhaengen - das merkt sich niemand, und ein
+  // Fehlgriff kostete frueher ein Training. Was eine Taste gerade nicht tut,
+  // steht auch nicht da.
   if (s_speichert) {
     fuss = "Speichere …";
   } else if (s_verwerfen_bis > time(NULL)) {
-    mitte = "Weiter";
-    unten = "Weg?";
+    mitte = SymbolStart;
+    unten = SymbolLoeschenFrage;
     fuss = "Nochmal Unten: verwerfen";
   } else if (s.zustand == LaufPause) {
-    oben = "Ende";
-    mitte = "Weiter";
-    unten = "Weg";
-    fuss = "Ende speichert, Weg verwirft";
+    oben = SymbolSpeichern;
+    mitte = SymbolStart;
+    unten = SymbolLoeschen;
+    fuss = "Oben speichert, Unten verwirft";
   } else if (s_bereit) {
-    mitte = "Start";
+    mitte = SymbolStart;
   } else {
-    mitte = "Pause";
+    mitte = SymbolPause;
     if (info->bahnen && !s.kompass) {
       // LIEBER SAGEN, DASS NICHT GEZAEHLT WIRD, als eine Null zeigen. Eine
       // Null bei den Bahnen sieht aus wie "du bist noch keine geschwommen".

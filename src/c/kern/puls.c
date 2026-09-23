@@ -6,11 +6,13 @@
 
 // Sekunden zwischen zwei Messungen während eines Trainings.
 //
-// EINE SEKUNDE WÄRE MÖGLICH UND FALSCH. Der Sensor misst optisch; jede
-// Messung kostet Licht und damit Strom, und ein Puls ändert sich nicht im
-// Sekundentakt. Fünf Sekunden sind dicht genug, um einen Zonenwechsel zu
-// bemerken, bevor er vorbei ist.
-#define TAKT_TRAINING_S 5
+// EINE SEKUNDE, ALSO DAUERND. Der erste Entwurf nahm fünf: der Sensor misst
+// optisch, jede Messung kostet Licht und damit Strom. Aber mit fünf Sekunden
+// zwischen den Messungen liess der Sensor am Lenker und am Hang den Wert
+// stehen, und die Zone stimmte nie. Eine Sekunde ist der Takt, in dem die
+// eingebaute Workout-App misst - und ein Training ist die eine Stunde am
+// Tag, in der der Akku dafür da ist.
+#define TAKT_TRAINING_S 1
 
 static uint16_t s_maximum = MAXPULS_VORGABE;
 
@@ -100,6 +102,6 @@ void puls_dicht_messen(void) {
 void puls_normal_messen(void) {
   // NULL heisst "zurück zur Vorgabe des Systems". Das ist die Zeile, die man
   // vergisst - und dann misst die Uhr noch am nächsten Morgen im
-  // Fünfsekundentakt, obwohl das Training seit zwölf Stunden vorbei ist.
+  // Sekundentakt, obwohl das Training seit zwölf Stunden vorbei ist.
   health_service_set_heart_rate_sample_period(0);
 }

@@ -18,11 +18,13 @@
 //  Die Zonen    tragen ihre eigenen Farben (thema_zonenfarbe); sie fuellen
 //               das Herz in der Leiste und den Balken unter dem Puls.
 //
-// Alle Farben aus der 64er-Palette: DarkGreen #005500, DarkGray #555555.
+// Alle Farben aus der 64er-Palette: ImperialPurple #550055, DarkGray #555555.
+// Violett, weil Blau (Drinktervall) und Orange (Flynformer) vergeben sind und
+// keine Pulszone violett ist - das Herz hebt sich in jeder Zone davon ab.
 #define KS_FARBE_GRUND       GColorWhite
 #define KS_FARBE_TEXT        GColorBlack
 #define KS_FARBE_NEBEN       PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack)
-#define KS_FARBE_LEISTE      PBL_IF_COLOR_ELSE(GColorDarkGreen, GColorBlack)
+#define KS_FARBE_LEISTE      PBL_IF_COLOR_ELSE(GColorImperialPurple, GColorBlack)
 #define KS_FARBE_AUF_LEISTE  GColorWhite
 
 // Die Masse, je Schirm. Auf der runden Uhr ist die Leiste breiter, weil der
@@ -36,9 +38,22 @@
 // Die Farbe einer Pulszone (1..5); 0 und alles andere: Grau.
 GColor thema_zonenfarbe(int zone);
 
+// Was neben einer Taste steht: ein Zeichen, kein Wort. Die Leiste ist dreissig
+// Punkte breit, da passt "Speichern" nicht hinein - eine Diskette schon, und
+// die versteht man auch im Vorbeischwingen.
+typedef enum {
+  SymbolKeins = 0,   //< die Taste tut gerade nichts
+  SymbolStart,       //< Dreieck: los
+  SymbolPause,       //< zwei Balken
+  SymbolSpeichern,   //< Diskette
+  SymbolLoeschen,    //< Abfalleimer
+  SymbolLoeschenFrage, //< Abfalleimer mit Fragezeichen: nochmal druecken
+  SymbolWahl,        //< Winkel nach rechts: auswaehlen
+} Symbol;
+
 // Die Leiste rechts ueber die volle Hoehe von `b`: das Herz oben - hohl,
 // solange kein Puls da ist, sonst in `herz` gefuellt - und darunter bis zu
-// drei Hinweise (Oben, Select, Unten) auf der Hoehe der Tasten. NULL oder
-// "" laesst eine Taste stumm: was nichts tut, wird nicht angeschrieben.
+// drei Zeichen (Oben, Select, Unten) auf der Hoehe der Tasten. SymbolKeins
+// laesst eine Taste stumm: was nichts tut, wird nicht angeschrieben.
 void thema_leiste(GContext *ctx, GRect b, bool herz_voll, GColor herz,
-                  const char *oben, const char *mitte, const char *unten);
+                  Symbol oben, Symbol mitte, Symbol unten);

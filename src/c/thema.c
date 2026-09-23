@@ -30,8 +30,71 @@ static const GPathInfo s_herz_info = {
 };
 static GPath *s_herz;
 
+// Das Dreieck fuer Start, 14 Punkte hoch, um seinen Mittelpunkt.
+static GPoint s_dreieck_punkte[] = { {-5, -7}, {7, 0}, {-5, 7} };
+static const GPathInfo s_dreieck_info = { 3, s_dreieck_punkte };
+static GPath *s_dreieck;
+
+// Die Zeichen sind alle in Weiss (AUF_LEISTE) auf der Leiste; wo ein Zeichen
+// eine Aussparung braucht, ist die in der Leistenfarbe gemalt.
+static void prv_symbol(GContext *ctx, Symbol was, GPoint m) {
+  const GColor weiss = KS_FARBE_AUF_LEISTE;
+  const GColor grund = KS_FARBE_LEISTE;
+  graphics_context_set_fill_color(ctx, weiss);
+  graphics_context_set_stroke_color(ctx, weiss);
+  graphics_context_set_stroke_width(ctx, 1);
+  switch (was) {
+    case SymbolStart:
+      if (!s_dreieck) s_dreieck = gpath_create(&s_dreieck_info);
+      gpath_move_to(s_dreieck, m);
+      gpath_draw_filled(ctx, s_dreieck);
+      break;
+    case SymbolPause:
+      graphics_fill_rect(ctx, GRect(m.x - 6, m.y - 7, 4, 14), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(m.x + 2, m.y - 7, 4, 14), 0, GCornerNone);
+      break;
+    case SymbolSpeichern:
+      // Die Diskette: ein Quadrat mit abgeschnittener Ecke, oben der
+      // Schieber mit seinem Fenster, unten das Etikett.
+      graphics_fill_rect(ctx, GRect(m.x - 8, m.y - 8, 16, 16), 2, GCornerBottomLeft | GCornerBottomRight | GCornerTopLeft);
+      graphics_context_set_fill_color(ctx, grund);
+      graphics_fill_rect(ctx, GRect(m.x - 4, m.y - 8, 8, 5), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(m.x - 5, m.y + 2, 10, 6), 0, GCornerNone);
+      graphics_context_set_fill_color(ctx, weiss);
+      graphics_fill_rect(ctx, GRect(m.x + 1, m.y - 7, 2, 3), 0, GCornerNone);
+      break;
+    case SymbolLoeschen:
+    case SymbolLoeschenFrage: {
+      // Der Eimer: Griff, Deckel, Koerper mit zwei Rillen. Beim zweiten
+      // Druck steht ein Fragezeichen daneben: jetzt ist es ernst.
+      const int16_t dx = was == SymbolLoeschenFrage ? -4 : 0;
+      graphics_fill_rect(ctx, GRect(m.x + dx - 2, m.y - 9, 4, 2), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(m.x + dx - 7, m.y - 7, 14, 2), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(m.x + dx - 5, m.y - 4, 10, 13), 1, GCornerBottomLeft | GCornerBottomRight);
+      graphics_context_set_fill_color(ctx, grund);
+      graphics_fill_rect(ctx, GRect(m.x + dx - 2, m.y - 2, 1, 8), 0, GCornerNone);
+      graphics_fill_rect(ctx, GRect(m.x + dx + 1, m.y - 2, 1, 8), 0, GCornerNone);
+      if (was == SymbolLoeschenFrage) {
+        graphics_context_set_text_color(ctx, weiss);
+        graphics_draw_text(ctx, "?", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
+                           GRect(m.x + 5, m.y - 12, 12, 22),
+                           GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+      }
+      break;
+    }
+    case SymbolWahl:
+      graphics_context_set_stroke_width(ctx, 3);
+      graphics_draw_line(ctx, GPoint(m.x - 3, m.y - 6), GPoint(m.x + 3, m.y));
+      graphics_draw_line(ctx, GPoint(m.x + 3, m.y), GPoint(m.x - 3, m.y + 6));
+      graphics_context_set_stroke_width(ctx, 1);
+      break;
+    default:
+      break;
+  }
+}
+
 void thema_leiste(GContext *ctx, GRect b, bool herz_voll, GColor herz,
-                  const char *oben, const char *mitte, const char *unten) {
+                  Symbol oben, Symbol mitte, Symbol unten) {
   const int16_t sx = b.size.w - KS_LEISTE_B;
   graphics_context_set_fill_color(ctx, KS_FARBE_LEISTE);
   graphics_fill_rect(ctx, GRect(sx, 0, KS_LEISTE_B, b.size.h), 0, GCornerNone);
@@ -52,16 +115,12 @@ void thema_leiste(GContext *ctx, GRect b, bool herz_voll, GColor herz,
   gpath_draw_outline(ctx, s_herz);
   graphics_context_set_stroke_width(ctx, 1);
 
-  // Die Hinweise auf Tastenhoehe: die Tasten sitzen bei einem Viertel, der
-  // Haelfte und drei Vierteln der Hoehe. Wer hinschaut, liest neben der
+  // Die Zeichen auf Tastenhoehe: die Tasten sitzen bei einem Viertel, der
+  // Haelfte und drei Vierteln der Hoehe. Wer hinschaut, sieht neben der
   // Taste, was sie tut - statt unten eine Zeile fuer alle drei.
-  graphics_context_set_text_color(ctx, KS_FARBE_AUF_LEISTE);
-  const char *hinweise[3] = { oben, mitte, unten };
+  const Symbol zeichen[3] = { oben, mitte, unten };
   for (int i = 0; i < 3; i++) {
-    if (!hinweise[i] || !hinweise[i][0]) continue;
-    const int16_t hy = b.size.h * (i + 1) / 4;
-    graphics_draw_text(ctx, hinweise[i], fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
-                       GRect(cx - 24, hy - 9, 48, 18),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    if (zeichen[i] == SymbolKeins) continue;
+    prv_symbol(ctx, zeichen[i], GPoint(cx, b.size.h * (i + 1) / 4));
   }
 }

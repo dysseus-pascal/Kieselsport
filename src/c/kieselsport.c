@@ -45,7 +45,7 @@ static void prv_gewaehlt(MenuLayer *liste, MenuIndex *index, void *daten) {
 static void prv_zeichne_leiste(Layer *layer, GContext *ctx) {
   // Im Menue ist das Herz hohl: gemessen wird erst im Training. Select
   // waehlt - Oben und Unten blaettern, das sagt die Liste selbst.
-  thema_leiste(ctx, layer_get_bounds(layer), false, GColorWhite, NULL, "Wahl", NULL);
+  thema_leiste(ctx, layer_get_bounds(layer), false, GColorWhite, SymbolKeins, SymbolWahl, SymbolKeins);
 }
 
 static void prv_laden(Window *fenster) {

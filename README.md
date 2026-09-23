@@ -80,7 +80,7 @@ Messung ein zweites Mal zu machen — mit eigenen Fehlern.
 **Die dichte Pulsmessung bleibt aktiv, nachdem die App endet.** So steht es in
 der Dokumentation von `health_service_set_heart_rate_sample_period`, und es ist
 die teuerste Falle dieser App: wer sie beim Beenden nicht zurücksetzt, misst
-noch stundenlang im Fünfsekundentakt weiter und saugt den Akku leer. Deshalb
+noch stundenlang im Sekundentakt weiter und saugt den Akku leer. Deshalb
 steht das Zurücksetzen an **jeder** Stelle, an der ein Training endet — beim
 Stop, bei der Pause und beim Verlassen der App.
 
@@ -93,16 +93,18 @@ Stop, bei der Pause und beim Verlassen der App.
 | **Unten** | in der Pause: **verwerfen** — zweimal drücken, damit kein Fehlgriff ein Training kostet |
 | **Zurück** | die App verlassen; **das Training läuft im Hintergrund weiter** |
 
-**Die Leiste rechts sagt, was die Tasten gerade tun** — auf der Höhe der
-Taste: *Start* oder *Pause* neben Select, in der Pause *Ende* neben Oben und
-*Weg* neben Unten. Drei Tasten mit drei Bedeutungen, die vom Zustand abhängen,
-merkt sich niemand — und ein Fehlgriff kostete früher ein Training. Was eine
-Taste gerade nicht tut, steht auch nicht da.
+**Die Leiste rechts zeigt, was die Tasten gerade tun** — auf der Höhe der
+Taste, als Zeichen: ein Dreieck für Start, zwei Balken für Pause, in der Pause
+eine Diskette neben Oben und ein Abfalleimer neben Unten; beim zweiten Druck
+steht ein Fragezeichen am Eimer. Drei Tasten mit drei Bedeutungen, die vom
+Zustand abhängen, merkt sich niemand — und ein Fehlgriff kostete früher ein
+Training. Was eine Taste gerade nicht tut, steht auch nicht da.
 
 ### Das Timeline-Design
 
 Seit 0.7.0 sieht Kieselsport aus wie Drinktervall und Flynformer: weisser
-Grund, schwarze Schrift, rechts eine dunkelgrüne Leiste. Der laufende Schirm
+Grund, schwarze Schrift, rechts eine violette Leiste — Blau und Orange sind
+an die beiden anderen vergeben, und keine Pulszone ist violett. Der laufende Schirm
 ist gebaut wie ein Eintrag der Pebble-Timeline — oben die Uhrzeit, dann eine
 kleine Zeile mit der Sportart, die grosse Zahl in LECO, darunter Puls und Zone
 mit dem Balken und die kleinen Felder. Oben in der Leiste sitzt ein **Herz**:

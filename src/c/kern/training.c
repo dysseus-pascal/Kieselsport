@@ -123,6 +123,10 @@ void training_pause_umschalten(void) {
 void training_tick(void) {
   if (s_zustand != LaufLaeuft) return;
   s_sekunden++;
+  // DEN TAKT JEDE MINUTE NACHSTELLEN. Die Messrate ist eine Bitte ans
+  // System, keine Zusage; schaltet es sie zwischendurch zurueck, faellt der
+  // Puls still auf den Ruhetakt - und niemand saehe es der Zahl an.
+  if (s_sekunden % 60 == 0) puls_dicht_messen();
 
   const ArtInfo *info = art_info(s_art);
   if (info->reps) reps_tick((uint16_t)s_sekunden);

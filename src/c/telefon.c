@@ -18,6 +18,19 @@ static bool s_hat_wartende;
 // darf die Wartende loeschen, nicht die einer Zustandsmeldung.
 static bool s_letzte_war_zusammenfassung;
 
+// Die offene Zustandsmeldung, bis das Telefon sie hat. Ein paar Anlaeufe,
+// nicht endlos: die Zusammenfassung am Ende sagt ohnehin alles noch einmal.
+static bool s_zustand_offen;
+static Trainingsmeldung s_zustand_was;
+static uint8_t s_zustand_art;
+static uint32_t s_zustand_beginn;
+static uint8_t s_zustand_versuche;
+static AppTimer *s_zustand_timer;
+#define ZUSTAND_VERSUCHE 6
+#define ZUSTAND_ABSTAND_MS 1500
+
+static void prv_zustand_senden(void *data);
+
 static void prv_sende_jetzt(void);
 
 static void prv_nachfassen(void *data) {
@@ -49,10 +62,16 @@ static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void
   if (s_hat_wartende && !s_nachfassen) {
     s_nachfassen = app_timer_register(2000, prv_nachfassen, NULL);
   }
+  if (!s_letzte_war_zusammenfassung && s_zustand_offen && !s_zustand_timer) {
+    s_zustand_timer = app_timer_register(ZUSTAND_ABSTAND_MS, prv_zustand_senden, NULL);
+  }
 }
 
 static void prv_angekommen(DictionaryIterator *iter, void *context) {
-  if (!s_letzte_war_zusammenfassung) return;
+  if (!s_letzte_war_zusammenfassung) {
+    s_zustand_offen = false;
+    return;
+  }
   s_hat_wartende = false;
   wartend_vergessen();
   APP_LOG(APP_LOG_LEVEL_INFO, "Zusammenfassung bestaetigt");
@@ -98,24 +117,48 @@ void telefon_nachsenden(void) {
 }
 
 /**
- * Eine kurze Zustandsmeldung - ohne Nachfassen.
+ * Eine kurze Zustandsmeldung - mit ein paar Anlaeufen.
  *
- * Sie darf ausfallen: geht der Start verloren, fehlt die Strecke, und das ist
- * aergerlich, aber nicht schlimm. Die Zusammenfassung am Ende ist die
- * Nachricht, die ankommen MUSS - die faellt deshalb nicht in denselben
- * Postausgang, sondern wartet und fasst nach.
+ * DER START MUSS ANKOMMEN, sonst fehlt die Strecke: das Telefon zeichnet
+ * nur auf, wenn es weiss, dass ein Training laeuft. Der erste Entwurf
+ * schickte die Meldung genau einmal; war die Verbindung in dieser Sekunde
+ * gerade besetzt, gab es ein Wandern ohne Karte, und niemand wusste, warum.
+ * Jetzt fasst sie nach - ein paarmal, nicht endlos: die Zusammenfassung am
+ * Ende sagt alles noch einmal, und die fasst so lange nach, bis sie da ist.
  */
-void telefon_melde_zustand(Trainingsmeldung was, uint8_t art, uint32_t beginn) {
+static void prv_zustand_senden(void *data) {
+  s_zustand_timer = NULL;
+  if (!s_zustand_offen) return;
+  if (s_zustand_versuche >= ZUSTAND_VERSUCHE) {
+    APP_LOG(APP_LOG_LEVEL_WARNING, "Zustandsmeldung aufgegeben");
+    s_zustand_offen = false;
+    return;
+  }
+  s_zustand_versuche++;
   DictionaryIterator *out;
-  if (app_message_outbox_begin(&out) != APP_MSG_OK) return;
-  dict_write_int32(out, MESSAGE_KEY_ZUSTAND, (int32_t)was);
-  dict_write_int32(out, MESSAGE_KEY_ART, (int32_t)art);
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) {
+    s_zustand_timer = app_timer_register(ZUSTAND_ABSTAND_MS, prv_zustand_senden, NULL);
+    return;
+  }
+  dict_write_int32(out, MESSAGE_KEY_ZUSTAND, (int32_t)s_zustand_was);
+  dict_write_int32(out, MESSAGE_KEY_ART, (int32_t)s_zustand_art);
   // DER BEGINN MUSS SCHON HIER MIT. Das Telefon legt die Spurdatei unter
   // diesem Zeitpunkt ab; erfuehre es ihn erst mit der Zusammenfassung,
   // haette es die Punkte unter einem anderen Namen gesammelt.
-  dict_write_int32(out, MESSAGE_KEY_BEGINN, (int32_t)beginn);
+  dict_write_int32(out, MESSAGE_KEY_BEGINN, (int32_t)s_zustand_beginn);
   s_letzte_war_zusammenfassung = false;
   app_message_outbox_send();
+}
+
+void telefon_melde_zustand(Trainingsmeldung was, uint8_t art, uint32_t beginn) {
+  // Eine neue Meldung ersetzt die offene: was jetzt gilt, zaehlt.
+  s_zustand_offen = true;
+  s_zustand_was = was;
+  s_zustand_art = art;
+  s_zustand_beginn = beginn;
+  s_zustand_versuche = 0;
+  if (s_zustand_timer) { app_timer_cancel(s_zustand_timer); s_zustand_timer = NULL; }
+  prv_zustand_senden(NULL);
 }
 
 void telefon_init(void) {
