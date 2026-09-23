@@ -40,9 +40,11 @@ uint16_t training_puls(void) {
   // durch die Zonen, damit auch der Zonenwechsel sichtbar wird.
   return (uint16_t)(105 + (s_sekunden % 90));
 #else
+  // MIT &, NICHT MIT ==. Die Maske kann neben "verfuegbar" weitere Bits
+  // tragen; ein strenger Vergleich hielte den Puls dann fuer nicht da.
   const time_t jetzt = time(NULL);
-  if (health_service_metric_accessible(HealthMetricHeartRateBPM, jetzt, jetzt)
-      != HealthServiceAccessibilityMaskAvailable) {
+  if (!(health_service_metric_accessible(HealthMetricHeartRateBPM, jetzt, jetzt)
+        & HealthServiceAccessibilityMaskAvailable)) {
     return 0;
   }
   const HealthValue wert = health_service_peek_current_value(HealthMetricHeartRateBPM);

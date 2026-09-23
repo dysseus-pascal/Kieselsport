@@ -17,6 +17,8 @@
 
 void telefon_init(void);
 void telefon_sende(const Trainingsstand *t);
+// Ob noch eine Zusammenfassung auf ihre Bestaetigung wartet.
+bool telefon_wartet(void);
 
 // Was gerade geschieht - damit das Telefon weiss, wann es mitschreiben soll.
 //

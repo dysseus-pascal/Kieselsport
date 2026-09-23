@@ -17,12 +17,67 @@
 static AppTimer *s_nachfassen;
 static Trainingsstand s_wartet;
 static bool s_hat_wartende;
+// Die Abschnittsliste gehoert zur wartenden Zusammenfassung, nicht zum
+// laufenden Zaehler: der wird beim naechsten Start geleert, und dann
+// schickte ein Nachfassen die Saetze des NEUEN Trainings mit dem alten.
+static char s_liste[KS_LISTE_MAX];
+// Ob die letzte Sendung die Zusammenfassung war - nur deren Bestaetigung
+// darf die Wartende loeschen, nicht die einer Zustandsmeldung.
+static bool s_letzte_war_zusammenfassung;
+
+// DIE ZUSAMMENFASSUNG UEBERLEBT DAS SCHLIESSEN DER APP. Bis hierher lag sie
+// nur im Speicher: war das Telefon nicht erreichbar oder hoerte dort gerade
+// niemand zu, fasste die Uhr nach, solange die App offen war - und vergass
+// sie beim Verlassen. Ein Training, das nie ankam, war damit weg. Jetzt
+// liegt sie im Persist, bis das Telefon sie bestaetigt hat, und der
+// naechste Start der App schickt sie noch einmal.
+#define PERSIST_WARTET 30
+#define PERSIST_WARTET_LISTE_A 31
+#define PERSIST_WARTET_LISTE_B 32
+// persist_write_string nimmt hoechstens 256 Zeichen; die Liste darf 300 sein.
+#define PERSIST_HALB 200
 
 static void prv_sende_jetzt(void);
 
 static void prv_nachfassen(void *data) {
   s_nachfassen = NULL;
   if (s_hat_wartende) prv_sende_jetzt();
+}
+
+static void prv_wartende_merken(void) {
+  persist_write_data(PERSIST_WARTET, &s_wartet, sizeof(s_wartet));
+  char halb[PERSIST_HALB + 1];
+  strncpy(halb, s_liste, PERSIST_HALB);
+  halb[PERSIST_HALB] = 0;
+  persist_write_string(PERSIST_WARTET_LISTE_A, halb);
+  const size_t laenge = strlen(s_liste);
+  if (laenge > PERSIST_HALB) {
+    persist_write_string(PERSIST_WARTET_LISTE_B, s_liste + PERSIST_HALB);
+  } else {
+    persist_delete(PERSIST_WARTET_LISTE_B);
+  }
+}
+
+static void prv_wartende_vergessen(void) {
+  persist_delete(PERSIST_WARTET);
+  persist_delete(PERSIST_WARTET_LISTE_A);
+  persist_delete(PERSIST_WARTET_LISTE_B);
+}
+
+static bool prv_wartende_laden(void) {
+  if (!persist_exists(PERSIST_WARTET)) return false;
+  memset(&s_wartet, 0, sizeof(s_wartet));
+  persist_read_data(PERSIST_WARTET, &s_wartet, sizeof(s_wartet));
+  s_liste[0] = 0;
+  if (persist_exists(PERSIST_WARTET_LISTE_A)) {
+    persist_read_string(PERSIST_WARTET_LISTE_A, s_liste, PERSIST_HALB + 1);
+  }
+  if (persist_exists(PERSIST_WARTET_LISTE_B)) {
+    const size_t bisher = strlen(s_liste);
+    persist_read_string(PERSIST_WARTET_LISTE_B, s_liste + bisher,
+                        (uint16_t)(sizeof(s_liste) - bisher));
+  }
+  return s_wartet.beginn > 0 && s_wartet.dauer_s > 0;
 }
 
 /** Clay schickt Zahlen mal als Zahl, mal als Zeichenkette - beides nehmen. */
@@ -52,7 +107,10 @@ static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void
 }
 
 static void prv_angekommen(DictionaryIterator *iter, void *context) {
+  if (!s_letzte_war_zusammenfassung) return;
   s_hat_wartende = false;
+  prv_wartende_vergessen();
+  APP_LOG(APP_LOG_LEVEL_INFO, "Zusammenfassung bestaetigt");
 }
 
 static void prv_sende_jetzt(void) {
@@ -75,22 +133,28 @@ static void prv_sende_jetzt(void) {
   // DIE LISTE IST DAS, WAS DEN TAG SPAETER ERKLAERT. "4 Saetze" sagt wenig,
   // "12/10/8/8 mit 90 Sekunden dazwischen" sagt alles - und auf dem Telefon
   // wird jeder Abschnitt ein eigener Eintrag in der Gesundheitsakte.
-  if (abschnitt_anzahl() > 0) {
-    static char liste[KS_LISTE_MAX];
-    abschnitt_als_text(liste, sizeof(liste));
-    dict_write_cstring(out, MESSAGE_KEY_ABSCHNITTE, liste);
+  if (s_liste[0]) {
+    dict_write_cstring(out, MESSAGE_KEY_ABSCHNITTE, s_liste);
   }
   // DAS ENDE STEHT IN DERSELBEN NACHRICHT. Eine eigene Stopmeldung daneben
   // straeubte sich mit dieser um den Postausgang - der fasst genau EINE
   // Nachricht, und die zweite fiele mit BUSY aus.
   dict_write_int32(out, MESSAGE_KEY_ZUSTAND, (int32_t)ZustandStop);
+  s_letzte_war_zusammenfassung = true;
   app_message_outbox_send();
 }
 
 void telefon_sende(const Trainingsstand *t) {
   s_wartet = *t;
+  s_liste[0] = 0;
+  if (abschnitt_anzahl() > 0) abschnitt_als_text(s_liste, sizeof(s_liste));
   s_hat_wartende = true;
+  prv_wartende_merken();
   prv_sende_jetzt();
+}
+
+bool telefon_wartet(void) {
+  return s_hat_wartende;
 }
 
 /**
@@ -110,6 +174,7 @@ void telefon_melde_zustand(Trainingsmeldung was, uint8_t art, uint32_t beginn) {
   // diesem Zeitpunkt ab; erfuehre es ihn erst mit der Zusammenfassung,
   // haette es die Punkte unter einem anderen Namen gesammelt.
   dict_write_int32(out, MESSAGE_KEY_BEGINN, (int32_t)beginn);
+  s_letzte_war_zusammenfassung = false;
   app_message_outbox_send();
 }
 
@@ -118,4 +183,12 @@ void telefon_init(void) {
   app_message_register_outbox_failed(prv_abgelehnt);
   app_message_register_outbox_sent(prv_angekommen);
   app_message_open(INBOX_SIZE, OUTBOX_SIZE);
+
+  // Liegt noch eine unbestaetigte Zusammenfassung da, geht sie jetzt - mit
+  // etwas Abstand, damit die Verbindung zum Telefon erst steht.
+  if (prv_wartende_laden()) {
+    s_hat_wartende = true;
+    APP_LOG(APP_LOG_LEVEL_INFO, "Unbestaetigte Zusammenfassung - schicke erneut");
+    if (!s_nachfassen) s_nachfassen = app_timer_register(1500, prv_nachfassen, NULL);
+  }
 }

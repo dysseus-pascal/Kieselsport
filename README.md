@@ -241,7 +241,12 @@ nachdem das Training längst vorbei ist.
 **Die Zustandsmeldungen fassen nicht nach, die Zusammenfassung schon.** Geht
 ein Start verloren, fehlt die Strecke — ärgerlich, aber nicht schlimm. Geht die
 Zusammenfassung verloren, ist das Training weg; die wartet deshalb und
-versucht es erneut.
+versucht es erneut — **und überlebt seit 0.5.1 das Schliessen der App.** Bis
+dahin lag sie nur im Speicher: hörte auf dem Telefon gerade niemand zu, etwa
+weil Kiesel-Helper nach einem Update noch nicht wieder lief, fasste die Uhr
+nach, solange die App offen war, und vergass die Zusammenfassung beim
+Verlassen. Jetzt liegt sie im Persist, bis das Telefon sie bestätigt hat; der
+nächste Start der App schickt sie noch einmal.
 
 Die Uhr weiss von alldem nichts weiter. Sie misst und meldet; was daraus wird,
 entscheidet [Kiesel-Helper](https://github.com/dysseus-pascal/Kiesel-Helper).
@@ -260,7 +265,9 @@ KIESELSPORT_SRC=<dieser Ordner> tools/sync_kieselsport.sh "" demo
 ```
 
 Die `kieselsport.pbw` im Repo baut GitHub bei jeder Änderung an den Quellen
-neu und checkt sie selbst ein (`.github/workflows/bauen.yml`). Sie stand einmal
+neu und checkt sie selbst ein (`.github/workflows/bauen.yml`). Steht in der
+`package.json` eine Version, zu der es noch kein Release gibt, legt derselbe
+Lauf das Release samt Tag und `.pbw` an. Sie stand einmal
 vier Fassungen hinter den Quellen — wer sie installierte, bekam eine Uhr ohne
 Startmeldung, ohne Sätze und ohne Bahnen.
 
