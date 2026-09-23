@@ -65,6 +65,51 @@ GColor puls_zonenfarbe(int zone) {
 #endif
 }
 
+// --- Frisch oder alt ---
+
+static time_t s_frisch_seit = 0;   // letzte Meldung des Sensors oder Wertwechsel
+static uint16_t s_letzter = 0;
+
+static void prv_ereignis(HealthEventType ereignis, void *context) {
+  // Der Sensor meldet sich bei jeder neuen Messung - auch wenn der Wert
+  // derselbe ist. Das ist das verlaesslichere Zeichen fuer "frisch".
+  if (ereignis == HealthEventHeartRateUpdate) s_frisch_seit = time(NULL);
+}
+
+void puls_beobachten(void) {
+  s_frisch_seit = 0;
+  s_letzter = 0;
+  health_service_events_subscribe(prv_ereignis, NULL);
+}
+
+void puls_ignorieren(void) {
+  health_service_events_unsubscribe();
+}
+
+uint16_t puls_lesen(void) {
+  // MIT &, NICHT MIT ==. Die Maske kann neben "verfuegbar" weitere Bits
+  // tragen; ein strenger Vergleich hielte den Puls dann fuer nicht da.
+  const time_t jetzt = time(NULL);
+  if (!(health_service_metric_accessible(HealthMetricHeartRateBPM, jetzt, jetzt)
+        & HealthServiceAccessibilityMaskAvailable)) {
+    return 0;
+  }
+  const HealthValue wert = health_service_peek_current_value(HealthMetricHeartRateBPM);
+  const uint16_t bpm = wert > 0 ? (uint16_t)wert : 0;
+  // Ein Wert, der sich aendert, ist frisch - auch auf einer Firmware, die
+  // das Ereignis nicht schickt. So faellt kein Puls weg, der da ist.
+  if (bpm != s_letzter) {
+    s_letzter = bpm;
+    s_frisch_seit = jetzt;
+  }
+  return bpm;
+}
+
+bool puls_frisch(void) {
+  if (s_letzter == 0 || s_frisch_seit == 0) return false;
+  return (time(NULL) - s_frisch_seit) <= KS_PULS_ALT_S;
+}
+
 void puls_dicht_messen(void) {
   health_service_set_heart_rate_sample_period(TAKT_TRAINING_S);
 }

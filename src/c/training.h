@@ -53,6 +53,8 @@ void training_tick(void);
 
 // Aktueller Puls, 0 wenn keiner zu haben ist.
 uint16_t training_puls(void);
+// Ob der Puls frisch ist - oder nur der letzte gute Wert von vorhin.
+bool training_puls_frisch(void);
 
 // Die Sekunden seit dem Start - fuer alles, was Abschnitte zeitlich einordnet.
 uint16_t training_sekunde(void);

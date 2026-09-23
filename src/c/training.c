@@ -40,15 +40,15 @@ uint16_t training_puls(void) {
   // durch die Zonen, damit auch der Zonenwechsel sichtbar wird.
   return (uint16_t)(105 + (s_sekunden % 90));
 #else
-  // MIT &, NICHT MIT ==. Die Maske kann neben "verfuegbar" weitere Bits
-  // tragen; ein strenger Vergleich hielte den Puls dann fuer nicht da.
-  const time_t jetzt = time(NULL);
-  if (!(health_service_metric_accessible(HealthMetricHeartRateBPM, jetzt, jetzt)
-        & HealthServiceAccessibilityMaskAvailable)) {
-    return 0;
-  }
-  const HealthValue wert = health_service_peek_current_value(HealthMetricHeartRateBPM);
-  return wert > 0 ? (uint16_t)wert : 0;
+  return puls_lesen();
+#endif
+}
+
+bool training_puls_frisch(void) {
+#ifdef KS_DEMO
+  return true;
+#else
+  return puls_frisch();
 #endif
 }
 
@@ -62,6 +62,7 @@ void training_beenden_ganz(void) {
   // SICHERHEITSNETZ BEIM BEENDEN DER APP. Wer sie aus dem laufenden Training
   // heraus verlaesst, laesst sonst die dichte Pulsmessung an.
   puls_normal_messen();
+  puls_ignorieren();
 }
 
 Laufzustand training_zustand(void) { return s_zustand; }
@@ -80,6 +81,7 @@ void training_starte(Sportart art) {
   s_puls_messungen = 0;
   s_puls_max = 0;
   puls_dicht_messen();
+  puls_beobachten();
 
   // DIE ZAEHLER NUR DORT, WO SIE ETWAS MESSEN. Ein Beschleunigungsmesser,
   // der beim Laufen mitlaeuft, zaehlte Schritte als Wiederholungen; ein
@@ -112,8 +114,10 @@ void training_tick(void) {
   if (info->reps) reps_tick((uint16_t)s_sekunden);
   if (info->bahnen) bahnen_tick((uint16_t)s_sekunden);
 
+  // NUR FRISCHE WERTE ZAEHLEN. Ein alter, den der Sensor eine halbe Stunde
+  // lang wiederholt, zoege den Schnitt auf eine Zahl, die nie gemessen wurde.
   const uint16_t puls = training_puls();
-  if (puls > 0) {
+  if (puls > 0 && training_puls_frisch()) {
     s_puls_summe += puls;
     s_puls_messungen++;
     if (puls > s_puls_max) s_puls_max = puls;
@@ -188,6 +192,7 @@ Trainingsstand training_stoppe(void) {
   const Trainingsstand t = training_stand();
   s_zustand = LaufAus;
   puls_normal_messen();
+  puls_ignorieren();
   // EIN TRAINING UNTER EINER MINUTE IST KEINES. Ein Fehlgriff im Menü soll
   // das Archiv nicht mit Eintraegen fuellen, die niemand gemacht hat.
   if (t.dauer_s >= 60) prv_ins_archiv(&t);

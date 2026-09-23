@@ -52,6 +52,19 @@ zurück, **einmal**. Wer läuft, soll das unterscheiden können, ohne hinzusehen
 Das ist die einzige Stelle, an der die App von sich aus etwas sagt — und der
 eigentliche Grund, sie beim Sport zu tragen.
 
+**Unter Zone 1 steht »< Zone 1«**, nicht »Zone 0«. Zone 1 beginnt bei 50 % des
+Maximalpulses — bei 190 also bei 95. Wer darunter liegt, ist in keiner Zone,
+und der Balken bleibt leer.
+
+**Ein alter Wert steht grau da und trägt keine Zone.** Der Sensor am Handgelenk
+behält den letzten guten Wert, wenn er nichts Brauchbares misst — am Lenker,
+bei kalter Haut, mit lockerem Band. Dann stand eine halbe Stunde lang »75« in
+Schwarz, als wäre es gemessen. Seit 0.5.2 beobachtet die App den Sensor:
+meldet er sich neunzig Sekunden lang nicht und ändert sich der Wert nicht,
+gilt er als alt, wird grau und mit »alt« gezeigt, zählt nicht in den Schnitt
+und wechselt keine Zone. Das Band enger und das Handgelenk vom Lenker weg
+hilft mehr als jede Rechnung.
+
 Die Zonen rechnen sich aus deinem **Maximalpuls**, und der steht in der
 Konfigseite. »220 minus Alter« ist eine Faustformel mit einer Streuung von gut
 zehn Schlägen nach oben wie unten; aus ihr Zonen zu rechnen und sie dann als

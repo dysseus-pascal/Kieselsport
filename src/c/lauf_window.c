@@ -30,7 +30,8 @@ static void prv_tick(void *data) {
 
   // ZONENWECHSEL MELDEN. Das ist die eine Stelle, an der die Uhr von sich aus
   // etwas sagt - und der Grund, warum man sie beim Sport ueberhaupt anschaut.
-  const int zone = puls_zone(training_puls());
+  // Nur ein frischer Wert darf brummen: ein alter wechselt keine Zone.
+  const int zone = training_puls_frisch() ? puls_zone(training_puls()) : 0;
   if (training_zustand() == LaufLaeuft && zone > 0 && s_letzte_zone > 0 && zone != s_letzte_zone) {
     // Hoch: zwei kurze. Runter: eine. Wer laeuft, soll sie unterscheiden
     // koennen, ohne hinzusehen.
@@ -69,7 +70,8 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
 
   const Trainingsstand t = training_stand();
   const uint16_t puls = training_puls();
-  const int zone = puls_zone(puls);
+  const bool frisch = training_puls_frisch();
+  const int zone = frisch ? puls_zone(puls) : 0;
   char text[24];
 
   // --- Die grosse Zahl ---
@@ -114,15 +116,21 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
 
   // --- Puls mit Zonenbalken ---
   if (puls > 0) {
+    // EIN ALTER WERT STEHT GRAU DA und traegt keine Zone. Der Sensor behaelt
+    // den letzten guten Wert, wenn er am Lenker nichts Brauchbares misst -
+    // eine halbe Stunde "75" in Schwarz saehe aus wie eine Messung.
+    graphics_context_set_text_color(ctx, frisch ? GColorBlack : GColorDarkGray);
     snprintf(text, sizeof(text), "%u", (unsigned)puls);
     graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_LECO_28_LIGHT_NUMBERS),
                        GRect(rand, y, breite / 2, 32),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    snprintf(text, sizeof(text), "Zone %d", zone);
-    graphics_context_set_text_color(ctx, GColorBlack);
+    if (!frisch) snprintf(text, sizeof(text), "alt");
+    else if (zone == 0) snprintf(text, sizeof(text), "< Zone 1");
+    else snprintf(text, sizeof(text), "Zone %d", zone);
     graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
                        GRect(rand + breite / 2, y + 8, breite / 2, 22),
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+    graphics_context_set_text_color(ctx, GColorBlack);
     y += 34;
 
     // Der Balken: fuenf Felder, das erreichte gefuellt. Auf schwarzweissen

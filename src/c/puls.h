@@ -35,3 +35,21 @@ GColor puls_zonenfarbe(int zone);
 // Dichte Messung für die Dauer eines Trainings an- und wieder abschalten.
 void puls_dicht_messen(void);
 void puls_normal_messen(void);
+
+// Den Sensor beobachten, solange ein Training läuft - damit sich sagen
+// lässt, ob ein Wert FRISCH ist oder nur der letzte gute von vorhin.
+//
+// DER SENSOR BEHÄLT DEN LETZTEN GUTEN WERT. Am Lenker, bei kalter Haut oder
+// lockerem Band misst er schlecht, und dann liefert HeartRateBPM keinen
+// neuen Wert, sondern weiter den alten - eine halbe Stunde lang »75«, obwohl
+// man bergauf tritt. Frisch heisst: der Sensor hat sich in den letzten
+// KS_PULS_ALT_S Sekunden gemeldet oder der Wert hat sich geändert.
+#define KS_PULS_ALT_S 90
+
+void puls_beobachten(void);
+void puls_ignorieren(void);
+
+// Der aktuelle Wert vom Sensor, 0 wenn keiner zu haben ist.
+uint16_t puls_lesen(void);
+// Ob der zuletzt gelesene Wert frisch ist.
+bool puls_frisch(void);
