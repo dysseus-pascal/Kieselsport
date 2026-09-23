@@ -31,6 +31,9 @@ uint16_t reps_laufend(void);   //< Wiederholungen im laufenden Satz
 bool reps_ruht(void);          //< gerade Pause zwischen zwei Saetzen?
 uint16_t reps_ruhe_s(void);    //< wie lange die Pause schon dauert
 uint16_t reps_saetze(void);    //< abgeschlossene Saetze
+// Ist die Pause eben um gewesen? Einmal true, dann wieder false. Der
+// Worker darf nicht brummen; er sagt es der App, und die brummt.
+bool reps_brumm_holen(void);
 
 // Wie empfindlich gezaehlt wird: 1 traege, 2 normal, 3 fein.
 //

@@ -22,10 +22,20 @@ enum {
   BotStand1 = 1,   //< data0 = zustand | art << 4, data1 = Sekunden, data2 = Puls | frisch << 15
   BotStand2,       //< data0 = Schritte, data1 = Meter / 10, data2 = kcal
   BotStand3,       //< data0 = Saetze, data1 = Wiederholungen gesamt, data2 = laufende | ruht << 15
-  BotStand4,       //< data0 = Pause in s, data1 = Bahnen, data2 = Kompass bereit | Zone << 8
+  BotStand4,       //< data0 = Pause in s, data1 = Bahnen, data2 = Kompass bereit | Brummen << 4 | Zone << 8
   BotStand5,       //< data0 = Beginn hoch, data1 = Beginn tief, data2 = Maximalpuls
   BotFertig,       //< gespeichert - die Zusammenfassung liegt im Persist (wartend.h)
   BotVerworfen,    //< beendet, ohne Zusammenfassung
+};
+
+// Was zu brummen ist - im Feld "Brummen" von BotStand4. DER WORKER DARF
+// NICHT BRUMMEN, die App schon; also sagt er ihr, was faellig ist. Schaut
+// gerade niemand zu, holt er die App fuer einen Zonenwechsel nach vorn.
+enum {
+  BrummNichts = 0,
+  BrummZoneHoch = 1,   //< zwei kurze
+  BrummZoneRunter = 2, //< eine
+  BrummPauseUm = 3,    //< Kraft: die Pause ist um
 };
 
 // Nach so vielen Sekunden ohne neues Abo hoert der Worker auf zu senden:

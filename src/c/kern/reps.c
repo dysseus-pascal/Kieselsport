@@ -35,6 +35,7 @@ static bool s_ruht;
 static uint16_t s_ruhe_beginn;
 static uint16_t s_ruhe_dauer;
 static bool s_gebrummt;
+static bool s_brumm_faellig;   //< die Pause ist um - die App soll brummen
 
 static int32_t prv_schwelle(void) {
   // Fein zaehlt kleine Bewegungen mit, traege nur deutliche.
@@ -175,10 +176,9 @@ void reps_tick(uint16_t sekunde) {
       sekunde >= s_ruhe_beginn + s_pausenziel) {
     // EINMAL BRUMMEN, WENN DIE PAUSE UM IST. Das ist der eine Dienst, den die
     // Uhr hier leistet und das Telefon nicht: man hat die Hantel in der Hand
-    // und schaut nirgendwo hin.
-    static const uint32_t muster[] = { 80, 100, 80 };
-    VibePattern v = { .durations = muster, .num_segments = 3 };
-    vibes_enqueue_custom_pattern(v);
+    // und schaut nirgendwo hin. Brummen kann nur die App - der Worker darf
+    // nicht -, also wird es hier nur vorgemerkt.
+    s_brumm_faellig = true;
     s_gebrummt = true;
   }
 
@@ -226,6 +226,12 @@ uint16_t reps_saetze(void) {
 #else
   return s_saetze;
 #endif
+}
+
+bool reps_brumm_holen(void) {
+  const bool war = s_brumm_faellig;
+  s_brumm_faellig = false;
+  return war;
 }
 
 void reps_empfindlichkeit_setze(uint8_t stufe) {

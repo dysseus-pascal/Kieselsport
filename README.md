@@ -122,6 +122,13 @@ lässt, ist die Zeile unter dem Namen im Startmenü — der *App Glance*: »Lauf
 im Hintergrund, seit 25 min«. Die Zeit zählt die Uhr dort selbst weiter, und
 ein Tippen auf Kieselsport öffnet gleich den laufenden Schirm, nicht das Menü.
 
+**Brummen kann nur die App.** Der Worker darf die Uhr nicht vibrieren lassen.
+Er merkt sich, was fällig ist — Zonenwechsel, Pause um —, und die App brummt,
+sobald sie es hört. Ist die App zu, holt der Worker sie für einen
+Zonenwechsel nach vorn: das Zifferblatt weicht dem Training, die Uhr brummt.
+Das ist der Preis dafür, dass der Zonenwechsel auch im Hintergrund etwas
+sagt — und er ist der Grund, die Uhr beim Sport zu tragen.
+
 **Warum der Worker nicht mit dem Telefon redet:** er darf nicht. AppMessage
 gibt es nur in der App. Beim Speichern legt der Worker die Zusammenfassung
 deshalb in den Persist, und die App schickt sie — und fasst nach, bis das

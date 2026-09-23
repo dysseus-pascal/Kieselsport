@@ -315,6 +315,34 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   }
 }
 
+// --- Brummen ---
+
+// DER WORKER DARF NICHT BRUMMEN, die App schon. Er sagt, was faellig ist:
+// beim Zonenwechsel hoch zwei kurze, runter eine - wer laeuft, soll sie
+// unterscheiden koennen, ohne hinzusehen. Und beim Kraft einmal, wenn die
+// Pause um ist.
+static void prv_brummen(uint8_t was) {
+  switch (was) {
+    case BrummZoneHoch: {
+      static const uint32_t hoch[] = { 60, 80, 60 };
+      VibePattern muster = { .durations = hoch, .num_segments = 3 };
+      vibes_enqueue_custom_pattern(muster);
+      break;
+    }
+    case BrummZoneRunter:
+      vibes_short_pulse();
+      break;
+    case BrummPauseUm: {
+      static const uint32_t pause[] = { 80, 100, 80 };
+      VibePattern muster = { .durations = pause, .num_segments = 3 };
+      vibes_enqueue_custom_pattern(muster);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 // --- Zum Worker und zurueck ---
 
 static void prv_start(void) {
@@ -385,8 +413,9 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
     case BotStand4:
       s.ruhe_s = d->data0;
       s.bahnen = d->data1;
-      s.kompass = (d->data2 & 0xFF) != 0;
+      s.kompass = (d->data2 & 0x0F) != 0;
       s.zone = d->data2 >> 8;
+      prv_brummen((d->data2 >> 4) & 0x0F);
       break;
     case BotStand5:
       s.beginn = ((uint32_t)d->data0 << 16) | d->data1;

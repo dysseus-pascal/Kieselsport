@@ -26,6 +26,12 @@
 
 static int s_letzte_zone = -1;
 static uint8_t s_abo_alter_s = 255;
+// Was die App brummen soll, und seit wann es faellig ist. Bleibt stehen,
+// bis eine zuschauende App es bekommen hat - hoechstens ein paar Sekunden,
+// sonst brummte es fuer etwas, das laengst vorbei ist.
+static uint8_t s_brumm = BrummNichts;
+static time_t s_brumm_seit;
+#define BRUMM_FRIST_S 6
 
 static void prv_stand_senden(void) {
   const Trainingsstand t = training_stand();
@@ -49,9 +55,15 @@ static void prv_stand_senden(void) {
   m.data2 = (uint16_t)(reps_laufend() | (reps_ruht() ? 0x8000 : 0));
   worker_send_message(BotStand3, &m);
 
+  uint8_t brumm = BrummNichts;
+  if (s_brumm != BrummNichts) {
+    if (time(NULL) - s_brumm_seit <= BRUMM_FRIST_S) brumm = s_brumm;
+    // Nur eine zuschauende App bekommt es - und dann genau einmal.
+    if (s_abo_alter_s <= KS_ABO_S) s_brumm = BrummNichts;
+  }
   m.data0 = reps_ruhe_s();
   m.data1 = t.bahnen;
-  m.data2 = (uint16_t)((bahnen_bereit() ? 1 : 0) | (zone << 8));
+  m.data2 = (uint16_t)((bahnen_bereit() ? 1 : 0) | (brumm << 4) | (zone << 8));
   worker_send_message(BotStand4, &m);
 
   m.data0 = (uint16_t)(t.beginn >> 16);
@@ -60,23 +72,29 @@ static void prv_stand_senden(void) {
   worker_send_message(BotStand5, &m);
 }
 
+static void prv_brumm_vormerken(uint8_t was) {
+  s_brumm = was;
+  s_brumm_seit = time(NULL);
+  if (s_abo_alter_s > KS_ABO_S) {
+    // NIEMAND SCHAUT ZU - die App ist zu. Brummen kann nur sie, also kommt
+    // sie nach vorn: das Zifferblatt weicht dem Training. Das ist der
+    // Preis dafuer, dass der Zonenwechsel auch im Hintergrund etwas sagt.
+    worker_launch_app();
+  } else {
+    prv_stand_senden();
+  }
+}
+
 static void prv_zonenwechsel(void) {
   // Das ist die eine Stelle, an der die Uhr von sich aus etwas sagt - und
   // der Grund, warum man sie beim Sport ueberhaupt anschaut. Nur ein
   // frischer Wert darf brummen: ein alter wechselt keine Zone.
   const int zone = training_puls_frisch() ? puls_zone(training_puls()) : 0;
   if (training_zustand() == LaufLaeuft && zone > 0 && s_letzte_zone > 0 && zone != s_letzte_zone) {
-    if (zone > s_letzte_zone) {
-      // Hoch: zwei kurze. Runter: eine. Wer laeuft, soll sie unterscheiden
-      // koennen, ohne hinzusehen.
-      static const uint32_t hoch[] = { 60, 80, 60 };
-      VibePattern muster = { .durations = hoch, .num_segments = 3 };
-      vibes_enqueue_custom_pattern(muster);
-    } else {
-      vibes_short_pulse();
-    }
+    prv_brumm_vormerken(zone > s_letzte_zone ? BrummZoneHoch : BrummZoneRunter);
   }
   if (zone > 0) s_letzte_zone = zone;
+  if (reps_brumm_holen()) prv_brumm_vormerken(BrummPauseUm);
 }
 
 static void prv_tick(struct tm *zeit, TimeUnits einheiten) {
