@@ -1,5 +1,5 @@
 #pragma once
-#include <pebble.h>
+#include "plattform.h"
 
 // Bahnen zählen beim Schwimmen - mit dem Magnetometer.
 //

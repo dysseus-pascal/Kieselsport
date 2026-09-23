@@ -1,5 +1,5 @@
 #pragma once
-#include <pebble.h>
+#include "plattform.h"
 
 // Puls und Pulszonen.
 //
@@ -28,9 +28,8 @@ int puls_zone(uint16_t bpm);
 // Untergrenze einer Zone in Schlägen, für die Anzeige.
 uint16_t puls_zonengrenze(int zone);
 
-// Farbe der Zone. Auf schwarzweissen Uhren immer schwarz - dort trägt die
-// Zahl die Aussage, nicht die Farbe.
-GColor puls_zonenfarbe(int zone);
+// Die Farbe der Zone steht NICHT hier, sondern in der App (lauf_window.c):
+// der Worker kennt keine Farben, und dieser Kern wird fuer beide uebersetzt.
 
 // Dichte Messung für die Dauer eines Trainings an- und wieder abschalten.
 void puls_dicht_messen(void);

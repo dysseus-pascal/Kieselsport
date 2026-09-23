@@ -1,5 +1,5 @@
 #pragma once
-#include <pebble.h>
+#include "plattform.h"
 
 // Die Abschnitte eines Trainings: ein Satz beim Krafttraining, eine Bahn
 // beim Schwimmen.

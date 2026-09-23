@@ -1,5 +1,5 @@
 #pragma once
-#include <pebble.h>
+#include "plattform.h"
 
 // Wiederholungen und Pausen beim Krafttraining - aus dem Beschleunigungsmesser.
 //

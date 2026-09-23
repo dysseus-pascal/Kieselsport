@@ -88,14 +88,44 @@ Stop, bei der Pause und beim Verlassen der App.
 
 | | |
 |---|---|
-| **Select** | Pause und weiter |
-| **Zurück** | erst Pause, dann beenden |
+| **Select** | Start — danach Pause und Weiter im Wechsel |
+| **Oben** | in der Pause: **speichern** |
+| **Unten** | in der Pause: **verwerfen** — zweimal drücken, damit kein Fehlgriff ein Training kostet |
+| **Zurück** | die App verlassen; **das Training läuft im Hintergrund weiter** |
 
-Zurück beendet **nicht sofort**. Ein Druck auf die falsche Taste beim Laufen
-dürfte sonst ein Training kosten.
+Der Schirm sagt unten, was die Tasten gerade tun. Drei Tasten mit drei
+Bedeutungen, die vom Zustand abhängen, merkt sich niemand — und ein Fehlgriff
+kostete früher ein Training.
 
-Ein Training unter einer Minute wird verworfen — ein Fehlgriff im Menü soll das
-Archiv nicht füllen.
+**Erst Select startet.** Die Wahl der Sportart öffnet den Schirm, aber die Zeit
+läuft nicht schon, während man das Band noch richtet.
+
+**Speichern und Verwerfen gibt es nur aus der Pause.** Beim Laufen soll ein
+Druck auf die falsche Taste nichts tun; die Hand am Ärmel trifft die obere
+leicht. Ein Training unter einer Minute wird auch beim Speichern verworfen —
+ein Fehlgriff im Menü soll das Archiv nicht füllen.
+
+### Das Training läuft im Hintergrund
+
+Seit 0.6.0 misst nicht die App, sondern ein **Hintergrund-Worker** — ein
+kleiner Teil der App, den die Uhr weiterlaufen lässt, wenn man mit Zurück aufs
+Zifferblatt geht. Er zählt die Sekunden, liest den Puls, zählt Sätze und Bahnen
+und brummt beim Zonenwechsel. Die App ist nur noch Anzeige und Tasten: sie
+bekommt jede Sekunde den Stand vom Worker und schickt ihm Befehle.
+
+Beim ersten Start fragt die Uhr einmal, ob Kieselsport im Hintergrund laufen
+darf. Ohne dieses Ja läuft nichts.
+
+**Im Startmenü steht, dass gezählt wird.** Ein Banner auf dem Zifferblatt, wie
+es die eingebaute Workout-App hat, gibt die Uhr fremden Apps nicht. Was sie
+lässt, ist die Zeile unter dem Namen im Startmenü — der *App Glance*: »Laufen
+im Hintergrund, seit 25 min«. Die Zeit zählt die Uhr dort selbst weiter, und
+ein Tippen auf Kieselsport öffnet gleich den laufenden Schirm, nicht das Menü.
+
+**Warum der Worker nicht mit dem Telefon redet:** er darf nicht. AppMessage
+gibt es nur in der App. Beim Speichern legt der Worker die Zusammenfassung
+deshalb in den Persist, und die App schickt sie — und fasst nach, bis das
+Telefon sie bestätigt hat, auch beim nächsten Start noch.
 
 ## Krafttraining: Sätze ohne Knopfdruck
 

@@ -1,9 +1,7 @@
 #include "reps.h"
 #include "abschnitt.h"
 
-// Persist 1 gehoert dem Maximalpuls, 10/11/100+ dem Archiv.
-#define PERSIST_EMPFIND 2
-#define PERSIST_PAUSENZIEL 3
+#include "schluessel.h"
 
 // 25 Messungen je Sekunde, in Paketen zu zehn. Dichter braucht es nicht: eine
 // Wiederholung dauert eine gute Sekunde, und jedes Paket kostet Strom.

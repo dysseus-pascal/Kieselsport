@@ -1,83 +1,28 @@
 #include "telefon.h"
-#include "puls.h"
-#include "reps.h"
-#include "bahnen.h"
-#include "abschnitt.h"
+#include "einstellungen.h"
+#include "wartend.h"
 
-// Der Postausgang traegt jetzt auch die Abschnittsliste - bis zu zwanzig
-// Saetze oder Bahnen als Text. 512 reicht dafuer mit Luft; die Liste selbst
-// bricht bei KS_LISTE_MAX ab.
+// Der Postausgang traegt auch die Abschnittsliste - bis zu zwanzig Saetze
+// oder Bahnen als Text. 512 reicht dafuer mit Luft.
 #define INBOX_SIZE 256
 #define OUTBOX_SIZE 512
-#define KS_LISTE_MAX 300
 
 // Ein zweiter Anlauf, falls der Postausgang gerade besetzt ist. Er fasst
 // genau EINE Nachricht; kommt die Zusammenfassung zu dicht hinter etwas
 // anderem, fiele sie still mit BUSY aus - und das Training wäre weg.
 static AppTimer *s_nachfassen;
 static Trainingsstand s_wartet;
-static bool s_hat_wartende;
-// Die Abschnittsliste gehoert zur wartenden Zusammenfassung, nicht zum
-// laufenden Zaehler: der wird beim naechsten Start geleert, und dann
-// schickte ein Nachfassen die Saetze des NEUEN Trainings mit dem alten.
 static char s_liste[KS_LISTE_MAX];
+static bool s_hat_wartende;
 // Ob die letzte Sendung die Zusammenfassung war - nur deren Bestaetigung
 // darf die Wartende loeschen, nicht die einer Zustandsmeldung.
 static bool s_letzte_war_zusammenfassung;
-
-// DIE ZUSAMMENFASSUNG UEBERLEBT DAS SCHLIESSEN DER APP. Bis hierher lag sie
-// nur im Speicher: war das Telefon nicht erreichbar oder hoerte dort gerade
-// niemand zu, fasste die Uhr nach, solange die App offen war - und vergass
-// sie beim Verlassen. Ein Training, das nie ankam, war damit weg. Jetzt
-// liegt sie im Persist, bis das Telefon sie bestaetigt hat, und der
-// naechste Start der App schickt sie noch einmal.
-#define PERSIST_WARTET 30
-#define PERSIST_WARTET_LISTE_A 31
-#define PERSIST_WARTET_LISTE_B 32
-// persist_write_string nimmt hoechstens 256 Zeichen; die Liste darf 300 sein.
-#define PERSIST_HALB 200
 
 static void prv_sende_jetzt(void);
 
 static void prv_nachfassen(void *data) {
   s_nachfassen = NULL;
   if (s_hat_wartende) prv_sende_jetzt();
-}
-
-static void prv_wartende_merken(void) {
-  persist_write_data(PERSIST_WARTET, &s_wartet, sizeof(s_wartet));
-  char halb[PERSIST_HALB + 1];
-  strncpy(halb, s_liste, PERSIST_HALB);
-  halb[PERSIST_HALB] = 0;
-  persist_write_string(PERSIST_WARTET_LISTE_A, halb);
-  const size_t laenge = strlen(s_liste);
-  if (laenge > PERSIST_HALB) {
-    persist_write_string(PERSIST_WARTET_LISTE_B, s_liste + PERSIST_HALB);
-  } else {
-    persist_delete(PERSIST_WARTET_LISTE_B);
-  }
-}
-
-static void prv_wartende_vergessen(void) {
-  persist_delete(PERSIST_WARTET);
-  persist_delete(PERSIST_WARTET_LISTE_A);
-  persist_delete(PERSIST_WARTET_LISTE_B);
-}
-
-static bool prv_wartende_laden(void) {
-  if (!persist_exists(PERSIST_WARTET)) return false;
-  memset(&s_wartet, 0, sizeof(s_wartet));
-  persist_read_data(PERSIST_WARTET, &s_wartet, sizeof(s_wartet));
-  s_liste[0] = 0;
-  if (persist_exists(PERSIST_WARTET_LISTE_A)) {
-    persist_read_string(PERSIST_WARTET_LISTE_A, s_liste, PERSIST_HALB + 1);
-  }
-  if (persist_exists(PERSIST_WARTET_LISTE_B)) {
-    const size_t bisher = strlen(s_liste);
-    persist_read_string(PERSIST_WARTET_LISTE_B, s_liste + bisher,
-                        (uint16_t)(sizeof(s_liste) - bisher));
-  }
-  return s_wartet.beginn > 0 && s_wartet.dauer_s > 0;
 }
 
 /** Clay schickt Zahlen mal als Zahl, mal als Zeichenkette - beides nehmen. */
@@ -87,16 +32,16 @@ static int32_t prv_zahl(Tuple *t) {
 
 static void prv_inbox(DictionaryIterator *iter, void *context) {
   Tuple *max = dict_find(iter, MESSAGE_KEY_MAXPULS);
-  if (max) puls_setze_maximum((uint16_t)prv_zahl(max));
+  if (max) einstellungen_maxpuls(prv_zahl(max));
 
   Tuple *becken = dict_find(iter, MESSAGE_KEY_BECKEN);
-  if (becken) bahnen_becken_setze((uint16_t)prv_zahl(becken));
+  if (becken) einstellungen_becken(prv_zahl(becken));
 
   Tuple *ziel = dict_find(iter, MESSAGE_KEY_PAUSENZIEL);
-  if (ziel) reps_pausenziel_setze((uint16_t)prv_zahl(ziel));
+  if (ziel) einstellungen_pausenziel(prv_zahl(ziel));
 
   Tuple *empf = dict_find(iter, MESSAGE_KEY_EMPFIND);
-  if (empf) reps_empfindlichkeit_setze((uint8_t)prv_zahl(empf));
+  if (empf) einstellungen_empfindlichkeit(prv_zahl(empf));
 }
 
 static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void *context) {
@@ -109,7 +54,7 @@ static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void
 static void prv_angekommen(DictionaryIterator *iter, void *context) {
   if (!s_letzte_war_zusammenfassung) return;
   s_hat_wartende = false;
-  prv_wartende_vergessen();
+  wartend_vergessen();
   APP_LOG(APP_LOG_LEVEL_INFO, "Zusammenfassung bestaetigt");
 }
 
@@ -144,17 +89,12 @@ static void prv_sende_jetzt(void) {
   app_message_outbox_send();
 }
 
-void telefon_sende(const Trainingsstand *t) {
-  s_wartet = *t;
-  s_liste[0] = 0;
-  if (abschnitt_anzahl() > 0) abschnitt_als_text(s_liste, sizeof(s_liste));
+void telefon_nachsenden(void) {
+  if (!wartend_laden(&s_wartet, s_liste, sizeof(s_liste))) return;
   s_hat_wartende = true;
-  prv_wartende_merken();
-  prv_sende_jetzt();
-}
-
-bool telefon_wartet(void) {
-  return s_hat_wartende;
+  APP_LOG(APP_LOG_LEVEL_INFO, "Zusammenfassung geht ans Telefon");
+  // Mit etwas Abstand, damit die Verbindung zum Telefon erst steht.
+  if (!s_nachfassen) s_nachfassen = app_timer_register(600, prv_nachfassen, NULL);
 }
 
 /**
@@ -184,11 +124,7 @@ void telefon_init(void) {
   app_message_register_outbox_sent(prv_angekommen);
   app_message_open(INBOX_SIZE, OUTBOX_SIZE);
 
-  // Liegt noch eine unbestaetigte Zusammenfassung da, geht sie jetzt - mit
-  // etwas Abstand, damit die Verbindung zum Telefon erst steht.
-  if (prv_wartende_laden()) {
-    s_hat_wartende = true;
-    APP_LOG(APP_LOG_LEVEL_INFO, "Unbestaetigte Zusammenfassung - schicke erneut");
-    if (!s_nachfassen) s_nachfassen = app_timer_register(1500, prv_nachfassen, NULL);
-  }
+  // Liegt noch eine unbestaetigte Zusammenfassung da - vom letzten Mal, als
+  // das Telefon nicht zuhoerte -, geht sie jetzt.
+  telefon_nachsenden();
 }

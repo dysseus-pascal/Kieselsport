@@ -1,6 +1,7 @@
 #include "puls.h"
 
-#define PERSIST_MAXPULS 1
+#include "schluessel.h"
+
 #define MAXPULS_VORGABE 190
 
 // Sekunden zwischen zwei Messungen während eines Trainings.
@@ -45,24 +46,6 @@ int puls_zone(uint16_t bpm) {
     if (bpm >= puls_zonengrenze(z)) return z;
   }
   return 0;
-}
-
-GColor puls_zonenfarbe(int zone) {
-#if defined(PBL_COLOR)
-  switch (zone) {
-    case 1: return GColorPictonBlue;
-    case 2: return GColorJaegerGreen;
-    case 3: return GColorLimerick;
-    case 4: return GColorChromeYellow;
-    case 5: return GColorFolly;
-    default: return GColorLightGray;
-  }
-#else
-  // SCHWARZWEISS: eine Farbe, die es nicht gibt, ist keine Auskunft. Auf
-  // flint trägt die Ziffer neben dem Puls die Zone, und die Balkenlänge
-  // darunter zeigt sie noch einmal.
-  return GColorBlack;
-#endif
 }
 
 // --- Frisch oder alt ---

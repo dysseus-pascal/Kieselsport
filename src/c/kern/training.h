@@ -1,5 +1,5 @@
 #pragma once
-#include <pebble.h>
+#include "plattform.h"
 #include "art.h"
 
 // Ein Training: was gerade läuft, und was davon übrig bleibt.
@@ -41,9 +41,14 @@ Laufzustand training_zustand(void);
 Sportart training_art(void);
 
 void training_starte(Sportart art);
+// Mit vorgegebenem Beginn - dem, den die App schon ans Telefon gemeldet hat.
+void training_starte_ab(Sportart art, uint32_t beginn);
 void training_pause_umschalten(void);
 // Beendet das Training und legt es ins Archiv. Gibt den Stand zurueck.
 Trainingsstand training_stoppe(void);
+// Beendet das Training, ohne es zu behalten - ein Fehlgriff, ein Abbruch.
+void training_verwerfen(void);
+uint32_t training_beginn(void);
 
 // Der laufende Stand, jederzeit abfragbar (auch in der Pause).
 Trainingsstand training_stand(void);

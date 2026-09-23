@@ -1,7 +1,7 @@
 #include "bahnen.h"
 #include "abschnitt.h"
 
-#define PERSIST_BECKEN 4
+#include "schluessel.h"
 
 // Wie stark geglaettet wird. Ein Zug dauert eine Sekunde, eine Bahn zwanzig -
 // die Mittelung muss den Zug schlucken und die Wende stehen lassen.

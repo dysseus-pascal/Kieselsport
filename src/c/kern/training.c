@@ -4,10 +4,7 @@
 #include "bahnen.h"
 #include "abschnitt.h"
 
-// Persist-Schluessel. 1 gehoert dem Maximalpuls (siehe puls.c).
-#define PERSIST_ARCHIV_ANZAHL 10
-#define PERSIST_ARCHIV_NAECHST 11
-#define PERSIST_ARCHIV_BASIS 100
+#include "schluessel.h"
 
 static Laufzustand s_zustand = LaufAus;
 static Sportart s_art = ArtLaufen;
@@ -23,9 +20,19 @@ static uint32_t s_puls_summe = 0;
 static uint32_t s_puls_messungen = 0;
 static uint16_t s_puls_max = 0;
 
+/** Mitternacht von heute - ohne time_start_of_today, das der Worker nicht hat. */
+static time_t prv_tagesanfang(void) {
+  time_t jetzt = time(NULL);
+  struct tm *t = localtime(&jetzt);
+  t->tm_hour = 0;
+  t->tm_min = 0;
+  t->tm_sec = 0;
+  return mktime(t);
+}
+
 static uint32_t prv_metrik(HealthMetric m) {
   const time_t jetzt = time(NULL);
-  const time_t heute = time_start_of_today();
+  const time_t heute = prv_tagesanfang();
   if (health_service_metric_accessible(m, heute, jetzt) != HealthServiceAccessibilityMaskAvailable) {
     return 0;
   }
@@ -69,10 +76,17 @@ Laufzustand training_zustand(void) { return s_zustand; }
 Sportart training_art(void) { return s_art; }
 
 void training_starte(Sportart art) {
+  training_starte_ab(art, (uint32_t)time(NULL));
+}
+
+void training_starte_ab(Sportart art, uint32_t beginn) {
   s_art = art;
   abschnitt_leeren();
   s_zustand = LaufLaeuft;
-  s_beginn = (uint32_t)time(NULL);
+  // DER BEGINN KOMMT VON DER APP, nicht von hier: sie hat ihn schon ans
+  // Telefon gemeldet, und die Spurdatei dort heisst nach ihm. Zwei Uhren
+  // in derselben Sekunde koennten auseinanderliegen.
+  s_beginn = beginn ? beginn : (uint32_t)time(NULL);
   s_sekunden = 0;
   s_schritte_anfang = prv_metrik(HealthMetricStepCount);
   s_meter_anfang = prv_metrik(HealthMetricWalkedDistanceMeters);
@@ -198,6 +212,18 @@ Trainingsstand training_stoppe(void) {
   if (t.dauer_s >= 60) prv_ins_archiv(&t);
   return t;
 }
+
+void training_verwerfen(void) {
+  const ArtInfo *info = art_info(s_art);
+  if (info->reps) reps_stoppe((uint16_t)s_sekunden);
+  if (info->bahnen) bahnen_stoppe((uint16_t)s_sekunden);
+  s_zustand = LaufAus;
+  puls_normal_messen();
+  puls_ignorieren();
+  abschnitt_leeren();
+}
+
+uint32_t training_beginn(void) { return s_beginn; }
 
 int training_archiv_anzahl(void) {
   return persist_exists(PERSIST_ARCHIV_ANZAHL) ? persist_read_int(PERSIST_ARCHIV_ANZAHL) : 0;

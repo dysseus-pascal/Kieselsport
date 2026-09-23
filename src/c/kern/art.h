@@ -1,5 +1,5 @@
 #pragma once
-#include <pebble.h>
+#include "plattform.h"
 
 // Die Sportarten - und was bei jeder davon überhaupt eine Aussage ist.
 //

@@ -1,9 +1,9 @@
 #include <pebble.h>
 #include "art.h"
-#include "training.h"
-#include "puls.h"
 #include "telefon.h"
 #include "lauf_window.h"
+#include "glanz.h"
+#include "botschaft.h"
 
 // Kieselsport - Training auf der Uhr, Auswertung im eigenen Haus.
 //
@@ -12,6 +12,9 @@
 // Zusammenfassung ans Telefon, wo Kiesel-Helper sie in die Gesundheitsakte
 // einträgt - und damit steht ein Lauf im selben Wochenprofil wie Schlaf,
 // Ruhepuls und Wasser. Das ist der ganze Unterschied, und es ist der Grund.
+//
+// ZWEI TEILE: der Worker misst (worker_src), die App zeigt und bedient. So
+// laeuft ein Training weiter, wenn man mit Zurueck aufs Zifferblatt geht.
 //
 // Was sie NICHT tut: Karten, Routen, Höhenprofile. Die Uhr hat kein GPS; alles
 // davon käme ohnehin vom Telefon.
@@ -55,9 +58,13 @@ static void prv_entladen(Window *fenster) {
   menu_layer_destroy(s_liste);
 }
 
+static void prv_vom_worker(uint16_t typ, AppWorkerMessage *daten) {
+  lauf_window_nachricht(typ, daten);
+}
+
 static void prv_init(void) {
-  training_init();
   telefon_init();
+  app_worker_message_subscribe(prv_vom_worker);
 
   s_menue = window_create();
   window_set_window_handlers(s_menue, (WindowHandlers) {
@@ -66,6 +73,13 @@ static void prv_init(void) {
   });
   window_stack_push(s_menue, true);
 
+  // LAEUFT SCHON ETWAS, GLEICH HINEIN. Wer die App aus dem Startmenue
+  // oeffnet, weil dort "Laufen im Hintergrund" steht, will den Lauf sehen
+  // und nicht das Menue.
+  if (app_worker_is_running()) {
+    lauf_window_zeige_laufend();
+  }
+
 #ifdef KS_DEMO
   // Gleich hinein: im Emulator laesst sich keine Taste druecken. Welche Art,
   // sagt KS_DEMO_ART - so laesst sich jeder Schirm ansehen, auch der von
@@ -73,16 +87,20 @@ static void prv_init(void) {
 #ifndef KS_DEMO_ART
 #define KS_DEMO_ART ArtLaufen
 #endif
-  lauf_window_zeige(KS_DEMO_ART);
+  if (!app_worker_is_running()) lauf_window_zeige(KS_DEMO_ART);
 #endif
 }
 
 static void prv_ende(void) {
+  // DER HINWEIS IM STARTMENUE. Laeuft ein Training weiter, steht es dort
+  // unter Kieselsport - sonst wuesste man beim Blick auf die Uhr nicht, dass
+  // im Hintergrund gezaehlt wird.
+  // Ob etwas laeuft, weiss der Worker besser als der Schirm - der war
+  // vielleicht nie offen, wenn jemand nur ins Menue schaute.
+  glanz_setzen(app_worker_is_running() && lauf_window_laeuft(),
+               lauf_window_art(), lauf_window_beginn());
+  app_worker_message_unsubscribe();
   window_destroy(s_menue);
-  // DIE LETZTE ZEILE IST DIE WICHTIGSTE. Verlässt jemand die App aus einem
-  // laufenden Training heraus, bliebe die dichte Pulsmessung sonst an - und
-  // zwar über das Ende der App hinaus, so steht es in der Dokumentation.
-  training_beenden_ganz();
 }
 
 int main(void) {
