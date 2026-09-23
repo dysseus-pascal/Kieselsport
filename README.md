@@ -93,9 +93,22 @@ Stop, bei der Pause und beim Verlassen der App.
 | **Unten** | in der Pause: **verwerfen** — zweimal drücken, damit kein Fehlgriff ein Training kostet |
 | **Zurück** | die App verlassen; **das Training läuft im Hintergrund weiter** |
 
-Der Schirm sagt unten, was die Tasten gerade tun. Drei Tasten mit drei
-Bedeutungen, die vom Zustand abhängen, merkt sich niemand — und ein Fehlgriff
-kostete früher ein Training.
+**Die Leiste rechts sagt, was die Tasten gerade tun** — auf der Höhe der
+Taste: *Start* oder *Pause* neben Select, in der Pause *Ende* neben Oben und
+*Weg* neben Unten. Drei Tasten mit drei Bedeutungen, die vom Zustand abhängen,
+merkt sich niemand — und ein Fehlgriff kostete früher ein Training. Was eine
+Taste gerade nicht tut, steht auch nicht da.
+
+### Das Timeline-Design
+
+Seit 0.7.0 sieht Kieselsport aus wie Drinktervall und Flynformer: weisser
+Grund, schwarze Schrift, rechts eine dunkelgrüne Leiste. Der laufende Schirm
+ist gebaut wie ein Eintrag der Pebble-Timeline — oben die Uhrzeit, dann eine
+kleine Zeile mit der Sportart, die grosse Zahl in LECO, darunter Puls und Zone
+mit dem Balken und die kleinen Felder. Oben in der Leiste sitzt ein **Herz**:
+hohl, solange kein Puls da ist, sonst in der Farbe der Zone gefüllt — das sieht
+man aus dem Augenwinkel, ohne eine Zahl zu lesen. Auf Schwarzweiss ist die
+Leiste schwarz und das Herz weiss.
 
 **Erst Select startet.** Die Wahl der Sportart öffnet den Schirm, aber die Zeit
 läuft nicht schon, während man das Band noch richtet.

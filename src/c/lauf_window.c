@@ -3,12 +3,18 @@
 #include "botschaft.h"
 #include "schluessel.h"
 #include "puls.h"
+#include "thema.h"
 
 // Der laufende Schirm.
 //
 // EINE ZAHL IST GROSS, DIE ANDEREN SIND KLEIN. Beim Laufen schaut man im
 // Vorbeigehen hin, mit schwingendem Arm; was dann lesbar sein muss, ist die
 // Zeit und der Puls. Alles andere liest man in der Pause oder danach.
+//
+// GEBAUT WIE EIN TIMELINE-EINTRAG (siehe thema.h): oben die Uhrzeit, dann
+// eine kleine Zeile, die grosse Zahl in LECO, darunter Titel und die kleinen
+// Felder - und rechts die Leiste mit dem Herz und den Tasten-Hinweisen auf
+// Tastenhoehe. Drinktervall und Flynformer sehen genauso aus.
 //
 // DREI SEHR VERSCHIEDENE SCHIRME. 200x228 in Farbe, 144x168 schwarzweiss,
 // 260x260 rund - Letzteres schneidet die Ecken ab. Deshalb wird nichts fest
@@ -26,7 +32,6 @@
 
 static Window *s_fenster;
 static Layer *s_flaeche;
-static TextLayer *s_kopf;
 static AppTimer *s_abo;
 static AppTimer *s_zu;
 
@@ -55,26 +60,6 @@ static struct {
   uint32_t beginn;
 } s;
 
-// --- Farben ---
-
-static GColor prv_zonenfarbe(int zone) {
-#if defined(PBL_COLOR)
-  switch (zone) {
-    case 1: return GColorPictonBlue;
-    case 2: return GColorJaegerGreen;
-    case 3: return GColorLimerick;
-    case 4: return GColorChromeYellow;
-    case 5: return GColorFolly;
-    default: return GColorLightGray;
-  }
-#else
-  // SCHWARZWEISS: eine Farbe, die es nicht gibt, ist keine Auskunft. Auf
-  // flint traegt die Ziffer neben dem Puls die Zone, und die Balkenlaenge
-  // darunter zeigt sie noch einmal.
-  return GColorBlack;
-#endif
-}
-
 // --- Abo beim Worker ---
 
 static void prv_abo(void *data) {
@@ -96,66 +81,87 @@ static void prv_zeit(char *aus, size_t platz, uint32_t sekunden) {
 
 // --- Zeichnen ---
 
-static void prv_hinweis(GContext *ctx, const GRect *bounds, int16_t rand, int16_t breite,
-                        const char *oben, const char *unten) {
-  // Der Hinweis liegt UNTEN und ueber allem: auf flint reichen die Felder
-  // bis dorthin, und ein weisser Grund haelt ihn lesbar.
-  const int16_t h = PBL_IF_ROUND_ELSE(38, 34);
-  const GRect kasten = GRect(0, bounds->size.h - h - PBL_IF_ROUND_ELSE(22, 2), bounds->size.w, h + 4);
-  graphics_context_set_fill_color(ctx, GColorWhite);
-  graphics_fill_rect(ctx, kasten, 0, GCornerNone);
-  graphics_context_set_text_color(ctx, GColorBlack);
-  if (oben) {
-    graphics_draw_text(ctx, oben, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD),
-                       GRect(rand, kasten.origin.y, breite, 18),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  }
-  if (unten) {
-    graphics_draw_text(ctx, unten, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                       GRect(rand - 4, kasten.origin.y + 16, breite + 8, 18),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  }
+static void prv_text(GContext *ctx, const char *text, const char *schrift, GRect wo,
+                     GTextAlignment wie) {
+  graphics_draw_text(ctx, text, fonts_get_system_font(schrift), wo,
+                     GTextOverflowModeTrailingEllipsis, wie, NULL);
 }
 
 static void prv_zeichne(Layer *layer, GContext *ctx) {
   const GRect bounds = layer_get_bounds(layer);
-  const int16_t rand = PBL_IF_ROUND_ELSE(bounds.size.w / 6, 8);
-  const int16_t breite = bounds.size.w - 2 * rand;
-  // Auf der runden Uhr tiefer anfangen: der Block ist rund 150 Punkte hoch,
-  // auf 260 Punkten stuende er sonst oben und liesse das untere Drittel
-  // leer - und genau dort ist der Kreis am breitesten.
-  int16_t y = PBL_IF_ROUND_ELSE(52, 4);
+  const int16_t rand = KS_RAND;
+  // Die Spalte links von der Leiste; auf der runden Uhr mit viel Luft, weil
+  // der Kreis die Ecken nimmt.
+  const int16_t breite = bounds.size.w - KS_LEISTE_B - rand - 4;
+  int16_t y = PBL_IF_ROUND_ELSE(46, 18);
   char text[24];
+  const char *oben = NULL, *mitte = NULL, *unten = NULL;
+  const char *fuss = NULL;
 
-  graphics_context_set_text_color(ctx, GColorBlack);
+  // Die Uhrzeit oben, klein und mittig: so faengt jeder Timeline-Eintrag an.
+  graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+  char uhr[10];
+  clock_copy_time_string(uhr, sizeof(uhr));
+  prv_text(ctx, uhr, FONT_KEY_GOTHIC_14,
+           GRect(0, PBL_IF_ROUND_ELSE(10, 0), bounds.size.w - KS_LEISTE_B, 16),
+           GTextAlignmentCenter);
+
+  const ArtInfo *info = art_info(s_art);
+  const char *gross_schrift = KS_BREIT ? FONT_KEY_LECO_36_BOLD_NUMBERS
+                                       : FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM;
+  const int16_t gross_h = KS_BREIT ? 46 : 38;
+  const char *titel_schrift = KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD;
+  const int16_t titel_h = KS_BREIT ? 30 : 24;
 
   if (s_gespeichert) {
-    graphics_draw_text(ctx, "Gespeichert", fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD),
-                       GRect(rand, bounds.size.h / 2 - 30, breite, 34),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-    graphics_draw_text(ctx, "geht ans Telefon", fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                       GRect(rand, bounds.size.h / 2 + 6, breite, 24),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    prv_text(ctx, art_name(s_art), FONT_KEY_GOTHIC_14, GRect(rand, y, breite, 16), GTextAlignmentLeft);
+    y += 14;
+    graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+    prv_zeit(text, sizeof(text), s.sekunden);
+    prv_text(ctx, text, gross_schrift, GRect(rand, y, breite, gross_h), GTextAlignmentLeft);
+    y += gross_h;
+    prv_text(ctx, "Gespeichert", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    y += titel_h;
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    prv_text(ctx, "geht ans Telefon", KS_BREIT ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14,
+             GRect(rand, y, breite, 22), GTextAlignmentLeft);
+    thema_leiste(ctx, bounds, false, GColorWhite, NULL, NULL, NULL);
     return;
   }
 
   if (!s_bereit && !s.da) {
-    graphics_draw_text(ctx, "Hole den Stand …", fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                       GRect(rand, bounds.size.h / 2 - 12, breite, 24),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    prv_text(ctx, "Kieselsport", FONT_KEY_GOTHIC_14, GRect(rand, y, breite, 16), GTextAlignmentLeft);
+    y += 14 + gross_h;
+    graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+    prv_text(ctx, "Hole den Stand …", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    thema_leiste(ctx, bounds, false, GColorWhite, NULL, NULL, NULL);
     return;
   }
 
-  const ArtInfo *info = art_info(s_art);
+  // --- Die kleine Zeile: Art und Zustand ---
+  char zeile[32];
+  if (s_bereit) snprintf(zeile, sizeof(zeile), "%s · bereit", art_name(s_art));
+  else if (s.zustand == LaufPause) snprintf(zeile, sizeof(zeile), "%s · Pause", art_name(s_art));
+  else if (info->reps) {
+    // Beim Kraft steht die Gesamtzeit hier oben: gross ist unten der Satz.
+    char zeit[16];
+    prv_zeit(zeit, sizeof(zeit), s.sekunden);
+    snprintf(zeile, sizeof(zeile), "%s · %s", art_name(s_art), zeit);
+  } else snprintf(zeile, sizeof(zeile), "%s", art_name(s_art));
+  graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+  prv_text(ctx, zeile, FONT_KEY_GOTHIC_14, GRect(rand, y, breite, 16), GTextAlignmentLeft);
+  y += 14;
 
   // --- Die grosse Zahl ---
   //
   // SIE IST NICHT IMMER DIE ZEIT. Beim Krafttraining schaut man waehrend
   // eines Satzes auf die Wiederholungen und danach auf die Pause - die
   // Gesamtzeit interessiert erst hinterher. Der Schirm zeigt deshalb, was
-  // gerade gilt, und die Zeit rutscht daneben.
+  // gerade gilt, und die Zeit rutscht in die kleine Zeile darueber.
   const char *gross_name = NULL;
-  if (info->reps && !s_bereit) {
+  if (info->reps && !s_bereit && s.zustand != LaufPause) {
     if (s.ruht) {
       prv_zeit(text, sizeof(text), s.ruhe_s);
       gross_name = "Pause";
@@ -166,48 +172,37 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   } else {
     prv_zeit(text, sizeof(text), s_bereit ? 0 : s.sekunden);
   }
-  graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_LECO_38_BOLD_NUMBERS),
-                     GRect(rand, y, breite, 44),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  y += 42;
-
+  graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+  // Mit Stunden wird die Zeit auf der schmalen Uhr zu breit fuer die Spalte.
+  const bool lang = strlen(text) > 5;
+  prv_text(ctx, text, (lang && !KS_BREIT) ? FONT_KEY_LECO_20_BOLD_NUMBERS : gross_schrift,
+           GRect(rand, y + ((lang && !KS_BREIT) ? 8 : 0), breite, gross_h), GTextAlignmentLeft);
   if (gross_name) {
-    char zeit[16];
-    prv_zeit(zeit, sizeof(zeit), s.sekunden);
-    graphics_context_set_text_color(ctx, GColorDarkGray);
-    graphics_draw_text(ctx, gross_name, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                       GRect(rand, y - 4, breite / 2, 18),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    graphics_draw_text(ctx, zeit, fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                       GRect(rand + breite / 2, y - 4, breite / 2, 18),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    graphics_context_set_text_color(ctx, GColorBlack);
-    y += 14;
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    prv_text(ctx, gross_name, FONT_KEY_GOTHIC_14, GRect(rand, y + gross_h - 20, breite, 16),
+             GTextAlignmentRight);
   }
+  y += gross_h;
 
-  // --- Puls mit Zonenbalken ---
+  // --- Der Titel: Puls und Zone, mit dem Balken darunter ---
+  graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
   if (s_bereit) {
-    graphics_draw_text(ctx, "Select startet", fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                       GRect(rand, y, breite, 22),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-    y += 26;
+    prv_text(ctx, "Select startet", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    y += titel_h;
   } else if (s.puls > 0) {
     // EIN ALTER WERT STEHT GRAU DA und traegt keine Zone. Der Sensor behaelt
     // den letzten guten Wert, wenn er am Lenker nichts Brauchbares misst -
     // eine halbe Stunde "75" in Schwarz saehe aus wie eine Messung.
-    graphics_context_set_text_color(ctx, s.frisch ? GColorBlack : GColorDarkGray);
-    snprintf(text, sizeof(text), "%u", (unsigned)s.puls);
-    graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_LECO_28_LIGHT_NUMBERS),
-                       GRect(rand, y, breite / 2, 32),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    if (!s.frisch) snprintf(text, sizeof(text), "alt");
-    else if (s.zone == 0) snprintf(text, sizeof(text), "< Zone 1");
-    else snprintf(text, sizeof(text), "Zone %d", s.zone);
-    graphics_draw_text(ctx, text, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
-                       GRect(rand + breite / 2, y + 8, breite / 2, 22),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
-    graphics_context_set_text_color(ctx, GColorBlack);
-    y += 34;
+    if (!s.frisch) {
+      graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+      snprintf(text, sizeof(text), "%u · alt", (unsigned)s.puls);
+    } else if (s.zone == 0) {
+      snprintf(text, sizeof(text), "%u · < Zone 1", (unsigned)s.puls);
+    } else {
+      snprintf(text, sizeof(text), "%u · Zone %d", (unsigned)s.puls, s.zone);
+    }
+    prv_text(ctx, text, titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    y += titel_h;
 
     // Der Balken: fuenf Felder, das erreichte gefuellt. Auf schwarzweissen
     // Uhren ist er die Zone, weil dort keine Farbe sie tragen kann.
@@ -215,19 +210,18 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     for (int z = 1; z <= KS_ZONEN; z++) {
       const GRect kasten = GRect(rand + (z - 1) * fach, y, fach - 2, 6);
       if (z <= s.zone) {
-        graphics_context_set_fill_color(ctx, prv_zonenfarbe(z));
+        graphics_context_set_fill_color(ctx, thema_zonenfarbe(z));
         graphics_fill_rect(ctx, kasten, 0, GCornerNone);
       } else {
-        graphics_context_set_stroke_color(ctx, GColorDarkGray);
+        graphics_context_set_stroke_color(ctx, KS_FARBE_NEBEN);
         graphics_draw_rect(ctx, kasten);
       }
     }
     y += 12;
   } else {
-    graphics_draw_text(ctx, "kein Puls", fonts_get_system_font(FONT_KEY_GOTHIC_18),
-                       GRect(rand, y, breite, 22),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-    y += 26;
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    prv_text(ctx, "kein Puls", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    y += titel_h;
   }
 
   // --- Die kleinen Felder, nur was die Art hergibt ---
@@ -277,42 +271,55 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   const int16_t spaltenbreite = breite / felder;
   // Die Zahl schrumpft mit der Spalte: "1234" in 24 Punkt braucht gut
   // vierzig Punkte Breite, und drei Spalten auf 144 lassen keine vierzig.
-  GFont zahlenschrift = spaltenbreite >= 62
-      ? fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD)
-      : fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  const char *zahlenschrift = spaltenbreite >= 62 ? FONT_KEY_GOTHIC_24_BOLD
+                            : spaltenbreite >= 40 ? FONT_KEY_GOTHIC_18_BOLD
+                                                  : FONT_KEY_GOTHIC_14_BOLD;
 
   for (int i = 0; i < felder; i++) {
     const GRect kasten = GRect(rand + i * spaltenbreite, y, spaltenbreite - 3, 40);
-    graphics_context_set_text_color(ctx, GColorDarkGray);
-    graphics_draw_text(ctx, namen[i], fonts_get_system_font(FONT_KEY_GOTHIC_14),
-                       GRect(kasten.origin.x, kasten.origin.y, kasten.size.w, 16),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-    graphics_context_set_text_color(ctx, GColorBlack);
-    graphics_draw_text(ctx, werte[i], zahlenschrift,
-                       GRect(kasten.origin.x, kasten.origin.y + 13, kasten.size.w, 28),
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    prv_text(ctx, namen[i], FONT_KEY_GOTHIC_14,
+             GRect(kasten.origin.x, kasten.origin.y, kasten.size.w, 16), GTextAlignmentLeft);
+    graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+    prv_text(ctx, werte[i], zahlenschrift,
+             GRect(kasten.origin.x, kasten.origin.y + 13, kasten.size.w, 28), GTextAlignmentLeft);
   }
 
   // --- Was die Tasten gerade tun ---
   //
-  // DER SCHIRM SAGT ES, statt es vorauszusetzen. Drei Tasten mit drei
-  // Bedeutungen, die vom Zustand abhaengen - das merkt sich niemand, und
-  // ein Fehlgriff kostete frueher ein Training.
+  // DIE LEISTE SAGT ES, auf der Hoehe der Taste, statt es vorauszusetzen.
+  // Drei Tasten mit drei Bedeutungen, die vom Zustand abhaengen - das merkt
+  // sich niemand, und ein Fehlgriff kostete frueher ein Training. Was eine
+  // Taste gerade nicht tut, steht auch nicht da.
   if (s_speichert) {
-    prv_hinweis(ctx, &bounds, rand, breite, "Speichere …", NULL);
+    fuss = "Speichere …";
   } else if (s_verwerfen_bis > time(NULL)) {
-    prv_hinweis(ctx, &bounds, rand, breite, "Nochmal Unten: verwerfen", "Select: weiter");
+    mitte = "Weiter";
+    unten = "Weg?";
+    fuss = "Nochmal Unten: verwerfen";
   } else if (s.zustand == LaufPause) {
-    prv_hinweis(ctx, &bounds, rand, breite, "PAUSE  ·  Select: weiter",
-                "Oben: speichern  ·  Unten: verwerfen");
-  } else if (info->bahnen && !s.kompass) {
-    // LIEBER SAGEN, DASS NICHT GEZAEHLT WIRD, als eine Null zeigen. Eine
-    // Null bei den Bahnen sieht aus wie "du bist noch keine geschwommen".
-    prv_hinweis(ctx, &bounds, rand, breite, "Kompass nicht bereit", "Select: Pause");
+    oben = "Ende";
+    mitte = "Weiter";
+    unten = "Weg";
+    fuss = "Ende speichert, Weg verwirft";
+  } else if (s_bereit) {
+    mitte = "Start";
   } else {
-    prv_hinweis(ctx, &bounds, rand, breite, NULL,
-                s_bereit ? "Zurueck: Menue" : "Select: Pause  ·  Zurueck: Hintergrund");
+    mitte = "Pause";
+    if (info->bahnen && !s.kompass) {
+      // LIEBER SAGEN, DASS NICHT GEZAEHLT WIRD, als eine Null zeigen. Eine
+      // Null bei den Bahnen sieht aus wie "du bist noch keine geschwommen".
+      fuss = "Kompass nicht bereit";
+    }
   }
+  if (fuss) {
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    prv_text(ctx, fuss, FONT_KEY_GOTHIC_14,
+             GRect(rand, bounds.size.h - PBL_IF_ROUND_ELSE(40, 18), breite, 16), GTextAlignmentLeft);
+  }
+
+  const bool herz = !s_bereit && s.puls > 0 && s.frisch;
+  thema_leiste(ctx, bounds, herz, thema_zonenfarbe(s.zone), oben, mitte, unten);
 }
 
 // --- Brummen ---
@@ -419,7 +426,6 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
       break;
     case BotStand5:
       s.beginn = ((uint32_t)d->data0 << 16) | d->data1;
-      if (s_kopf) text_layer_set_text(s_kopf, art_name(s_art));
       break;
     case BotFertig:
       // Der Worker hat die Zusammenfassung in den Persist gelegt; von hier
@@ -512,15 +518,7 @@ static void prv_laden(Window *fenster) {
   Layer *wurzel = window_get_root_layer(fenster);
   const GRect bounds = layer_get_bounds(wurzel);
 
-  s_kopf = text_layer_create(GRect(0, PBL_IF_ROUND_ELSE(14, 0), bounds.size.w, 20));
-  text_layer_set_text(s_kopf, art_name(s_art));
-  text_layer_set_text_alignment(s_kopf, GTextAlignmentCenter);
-  text_layer_set_font(s_kopf, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
-  text_layer_set_background_color(s_kopf, GColorClear);
-  layer_add_child(wurzel, text_layer_get_layer(s_kopf));
-
-  s_flaeche = layer_create(GRect(0, PBL_IF_ROUND_ELSE(20, 18),
-                                 bounds.size.w, bounds.size.h - 18));
+  s_flaeche = layer_create(bounds);
   layer_set_update_proc(s_flaeche, prv_zeichne);
   layer_add_child(wurzel, s_flaeche);
 }
@@ -529,9 +527,7 @@ static void prv_entladen(Window *fenster) {
   if (s_abo) { app_timer_cancel(s_abo); s_abo = NULL; }
   if (s_zu) { app_timer_cancel(s_zu); s_zu = NULL; }
   layer_destroy(s_flaeche);
-  text_layer_destroy(s_kopf);
   s_flaeche = NULL;
-  s_kopf = NULL;
   window_destroy(s_fenster);
   s_fenster = NULL;
 }
@@ -543,7 +539,7 @@ static void prv_oeffnen(void) {
   memset(&s, 0, sizeof(s));
 
   s_fenster = window_create();
-  window_set_background_color(s_fenster, GColorWhite);
+  window_set_background_color(s_fenster, KS_FARBE_GRUND);
   window_set_click_config_provider(s_fenster, prv_tasten);
   window_set_window_handlers(s_fenster, (WindowHandlers) {
     .load = prv_laden,

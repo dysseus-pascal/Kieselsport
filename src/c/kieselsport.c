@@ -4,6 +4,7 @@
 #include "lauf_window.h"
 #include "glanz.h"
 #include "botschaft.h"
+#include "thema.h"
 
 // Kieselsport - Training auf der Uhr, Auswertung im eigenen Haus.
 //
@@ -21,6 +22,7 @@
 
 static Window *s_menue;
 static MenuLayer *s_liste;
+static Layer *s_leiste;
 
 static uint16_t prv_zeilen(MenuLayer *liste, uint16_t abschnitt, void *ctx) {
   return ArtAnzahl;
@@ -40,21 +42,37 @@ static void prv_gewaehlt(MenuLayer *liste, MenuIndex *index, void *daten) {
   lauf_window_zeige((Sportart)index->row);
 }
 
+static void prv_zeichne_leiste(Layer *layer, GContext *ctx) {
+  // Im Menue ist das Herz hohl: gemessen wird erst im Training. Select
+  // waehlt - Oben und Unten blaettern, das sagt die Liste selbst.
+  thema_leiste(ctx, layer_get_bounds(layer), false, GColorWhite, NULL, "Wahl", NULL);
+}
+
 static void prv_laden(Window *fenster) {
   Layer *wurzel = window_get_root_layer(fenster);
   const GRect bounds = layer_get_bounds(wurzel);
 
-  s_liste = menu_layer_create(bounds);
+  // DIE LISTE LAESST DER LEISTE PLATZ - dasselbe Bild wie der laufende
+  // Schirm, damit der Wechsel dorthin kein Sprung ist. Die gewaehlte Zeile
+  // traegt die Leistenfarbe.
+  s_liste = menu_layer_create(GRect(0, 0, bounds.size.w - KS_LEISTE_B, bounds.size.h));
   menu_layer_set_callbacks(s_liste, NULL, (MenuLayerCallbacks) {
     .get_num_rows = prv_zeilen,
     .draw_row = prv_zeichne_zeile,
     .select_click = prv_gewaehlt,
   });
+  menu_layer_set_normal_colors(s_liste, KS_FARBE_GRUND, KS_FARBE_TEXT);
+  menu_layer_set_highlight_colors(s_liste, KS_FARBE_LEISTE, KS_FARBE_AUF_LEISTE);
   menu_layer_set_click_config_onto_window(s_liste, fenster);
   layer_add_child(wurzel, menu_layer_get_layer(s_liste));
+
+  s_leiste = layer_create(bounds);
+  layer_set_update_proc(s_leiste, prv_zeichne_leiste);
+  layer_add_child(wurzel, s_leiste);
 }
 
 static void prv_entladen(Window *fenster) {
+  layer_destroy(s_leiste);
   menu_layer_destroy(s_liste);
 }
 
@@ -67,6 +85,7 @@ static void prv_init(void) {
   app_worker_message_subscribe(prv_vom_worker);
 
   s_menue = window_create();
+  window_set_background_color(s_menue, KS_FARBE_GRUND);
   window_set_window_handlers(s_menue, (WindowHandlers) {
     .load = prv_laden,
     .unload = prv_entladen,
