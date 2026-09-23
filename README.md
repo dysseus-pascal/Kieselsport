@@ -104,11 +104,16 @@ Training. Was eine Taste gerade nicht tut, steht auch nicht da.
 
 Seit 0.9.0 nutzt Kieselsport, was das SDK an Nützlichem hergibt:
 
-- **Die Pulskurve geht per Data Logging ans Telefon.** Der Worker schreibt
-  jede Sekunde einen Satz (Beginn, Sekunde, Puls); die Uhr sammelt, das Telefon
-  holt ab, sobald es erreichbar ist — auch Stunden später. Kiesel-Helper macht
-  daraus eine Pulskurve zum Training in der Gesundheitsakte. Es ist der eine
-  Weg, den ein Hintergrund-Worker zum Telefon hat.
+- **Die Pulskurve geht ans Telefon** — seit 0.10.0 über die App, nicht über
+  Data Logging: die Pebble-App reicht Data Logging nicht an klassische
+  Companion-Apps weiter, die Kurve kam nie an (Data Logging bleibt daneben
+  bestehen, falls das einmal anders wird). Der Worker merkt sich alle zehn
+  Sekunden ein Byte, legt die Kurve beim Speichern in den Persist (sechs
+  Schlüssel zu 200 Byte, gut drei Stunden), und die App schickt sie in
+  Stücken von 300 Werten hinterher, sobald die Zusammenfassung bestätigt ist
+  (`KURVE_AB`, `KURVE_ANZAHL`, `KURVE`). Jedes bestätigte Stück rückt den
+  Zeiger im Persist vor; geht die App dazwischen zu, geht es beim nächsten
+  Öffnen weiter. Kiesel-Helper macht daraus die Pulskurve in der Akte.
 - **Ohne Telefon keine Strecke, und der Schirm sagt es** vor dem Start
   (`connection_service_peek_pebble_app_connection`), solange die Art eine
   Strecke hätte. Danach wäre es zu spät.

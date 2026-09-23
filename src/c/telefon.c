@@ -1,6 +1,7 @@
 #include "telefon.h"
 #include "einstellungen.h"
 #include "wartend.h"
+#include "kurve.h"
 
 // Der Postausgang traegt auch die Abschnittsliste - bis zu zwanzig Saetze
 // oder Bahnen als Text. 512 reicht dafuer mit Luft.
@@ -30,6 +31,40 @@ static AppTimer *s_zustand_timer;
 #define ZUSTAND_ABSTAND_MS 1500
 
 static void prv_zustand_senden(void *data);
+
+// --- Die Pulskurve, stueckweise ---
+//
+// Erst wenn die Zusammenfassung bestaetigt ist: sie ist das Wichtige, und der
+// Postausgang fasst genau eine Nachricht. Dann je Nachricht bis zu 300 Werte
+// (fuenfzig Minuten), bis alles drueben ist. Jedes bestaetigte Stueck rueckt
+// den Zeiger im Persist vor - geht die App dazwischen zu, geht es beim
+// naechsten Oeffnen dort weiter.
+#define KURVE_JE_NACHRICHT 300
+static bool s_letzte_war_kurve;
+static uint16_t s_kurve_unterwegs;
+static AppTimer *s_kurve_timer;
+
+static void prv_kurve_senden(void *data) {
+  s_kurve_timer = NULL;
+  if (s_hat_wartende || !kurve_wartet()) return;
+  DictionaryIterator *out;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) {
+    s_kurve_timer = app_timer_register(700, prv_kurve_senden, NULL);
+    return;
+  }
+  static uint8_t stueck[KURVE_JE_NACHRICHT];
+  const uint16_t ab = kurve_ab();
+  const uint16_t n = kurve_stueck(stueck, sizeof(stueck));
+  if (n == 0) { kurve_vergessen(); return; }
+  dict_write_int32(out, MESSAGE_KEY_BEGINN, (int32_t)kurve_beginn());
+  dict_write_int32(out, MESSAGE_KEY_KURVE_ANZAHL, (int32_t)kurve_anzahl());
+  dict_write_int32(out, MESSAGE_KEY_KURVE_AB, (int32_t)ab);
+  dict_write_data(out, MESSAGE_KEY_KURVE, stueck, n);
+  s_kurve_unterwegs = n;
+  s_letzte_war_zusammenfassung = false;
+  s_letzte_war_kurve = true;
+  app_message_outbox_send();
+}
 
 static void prv_sende_jetzt(void);
 
@@ -65,9 +100,22 @@ static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void
   if (!s_letzte_war_zusammenfassung && s_zustand_offen && !s_zustand_timer) {
     s_zustand_timer = app_timer_register(ZUSTAND_ABSTAND_MS, prv_zustand_senden, NULL);
   }
+  if (s_letzte_war_kurve && !s_kurve_timer) {
+    s_letzte_war_kurve = false;
+    s_kurve_timer = app_timer_register(2000, prv_kurve_senden, NULL);
+  }
 }
 
 static void prv_angekommen(DictionaryIterator *iter, void *context) {
+  if (s_letzte_war_kurve) {
+    s_letzte_war_kurve = false;
+    kurve_bestaetigt(s_kurve_unterwegs);
+    APP_LOG(APP_LOG_LEVEL_INFO, "Kurve: %u Werte bestaetigt", (unsigned)s_kurve_unterwegs);
+    if (kurve_wartet() && !s_kurve_timer) {
+      s_kurve_timer = app_timer_register(150, prv_kurve_senden, NULL);
+    }
+    return;
+  }
   if (!s_letzte_war_zusammenfassung) {
     s_zustand_offen = false;
     return;
@@ -75,6 +123,10 @@ static void prv_angekommen(DictionaryIterator *iter, void *context) {
   s_hat_wartende = false;
   wartend_vergessen();
   APP_LOG(APP_LOG_LEVEL_INFO, "Zusammenfassung bestaetigt");
+  // Jetzt die Kurve hinterher.
+  if (kurve_wartet() && !s_kurve_timer) {
+    s_kurve_timer = app_timer_register(150, prv_kurve_senden, NULL);
+  }
 }
 
 static void prv_sende_jetzt(void) {
@@ -112,7 +164,7 @@ static void prv_sende_jetzt(void) {
   app_message_outbox_send();
 }
 
-bool telefon_wartet(void) { return s_hat_wartende; }
+bool telefon_wartet(void) { return s_hat_wartende || kurve_wartet(); }
 
 void telefon_nachsenden(void) {
   if (!wartend_laden(&s_wartet, s_liste, sizeof(s_liste))) return;
@@ -174,6 +226,10 @@ void telefon_init(void) {
   app_message_open(INBOX_SIZE, OUTBOX_SIZE);
 
   // Liegt noch eine unbestaetigte Zusammenfassung da - vom letzten Mal, als
-  // das Telefon nicht zuhoerte -, geht sie jetzt.
+  // das Telefon nicht zuhoerte -, geht sie jetzt. Und eine liegengebliebene
+  // Kurve gleich danach.
   telefon_nachsenden();
+  if (!s_hat_wartende && kurve_wartet()) {
+    s_kurve_timer = app_timer_register(800, prv_kurve_senden, NULL);
+  }
 }

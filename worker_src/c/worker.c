@@ -5,6 +5,7 @@
 #include "bahnen.h"
 #include "abschnitt.h"
 #include "wartend.h"
+#include "kurve.h"
 #include "botschaft.h"
 #include "schluessel.h"
 
@@ -155,6 +156,7 @@ static void prv_tick(struct tm *zeit, TimeUnits einheiten) {
   training_tick();
   if (training_zustand() == LaufLaeuft) {
     prv_log_puls();
+    kurve_tick(training_stand().dauer_s, training_puls_frisch() ? training_puls() : 0);
     if (zeit->tm_sec == 0) prv_akku_pruefen();
   }
   prv_zonenwechsel();
@@ -172,6 +174,7 @@ static void prv_starten_nach_bestellung(void) {
   s_letzte_zone = -1;
   prv_akku_pruefen();
   training_starte_ab(art, beginn);
+  kurve_start();
   prv_log_start();
   APP_LOG(APP_LOG_LEVEL_INFO, "Training gestartet: Art %d", (int)art);
 }
@@ -191,6 +194,9 @@ static void prv_speichern(void) {
   liste[0] = 0;
   if (abschnitt_anzahl() > 0) abschnitt_als_text(liste, sizeof(liste));
   wartend_merken(&t, liste);
+  // Die Kurve dazu - die App schickt sie, sobald die Zusammenfassung
+  // drueben ist.
+  kurve_merken(t.beginn);
   abschnitt_leeren();
   app_worker_send_message(BotFertig, &leer);
 }

@@ -21,4 +21,11 @@
 #define PERSIST_WARTET_LISTE_A 31
 #define PERSIST_WARTET_LISTE_B 32
 
+// Die Pulskurve, die auf das Telefon wartet (siehe kurve.h): Anzahl,
+// Beginn, wie weit sie schon drueben ist, und die Werte in Stuecken ab 50.
+#define PERSIST_KURVE_ANZAHL 40
+#define PERSIST_KURVE_BEGINN 41
+#define PERSIST_KURVE_AB 42
+#define PERSIST_KURVE_BASIS 50
+
 #define PERSIST_ARCHIV_BASIS 100
