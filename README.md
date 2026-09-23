@@ -344,6 +344,13 @@ Zittern nie: bei 12,5 Hz dauert jede Halbwelle eine einzige Messung.
 
 Aus 21 wurde damit 1, und die zehn echten blieben zehn.
 
+**Gemessen wurde an 0.5.x**, als die Zählung noch in der App lief. Seit
+0.6.0 tickt das Training im **Worker**; es ist dieselbe `reps.c`, also gilt
+dasselbe — nachgemessen in dieser Umgebung ist es aber noch nicht. Die Probe
+drückt inzwischen selbst auf Start (seit 0.6.0 startet das Training nicht mehr
+von allein), und der Emulator quittiert eingespeiste Messungen in dieser
+Fassung mit Paketfehlern. Das ist offen.
+
 ### Der Bahnenzähler: nicht prüfbar
 
 **Der Emulator hat keinen Kompass.** `pebble emu-compass --heading …` läuft

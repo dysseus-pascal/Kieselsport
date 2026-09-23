@@ -27,8 +27,15 @@ mkdir -p "$DST"
 if ! cmp -s "$SRC/package.json" "$DST/package.json" 2>/dev/null; then
   (cd "$DST" && pebble clean >/dev/null 2>&1)
 fi
-rm -rf "$DST/src" "$DST/build"
+rm -rf "$DST/src" "$DST/worker_src" "$DST/build"
 cp -r "$SRC/src" "$DST/"
+# DER WORKER GEHOERT DAZU, seit das Training im Hintergrund laeuft. Ohne
+# worker_src baut waf ihn nicht mit, die App meldet beim Start "Worker
+# startet nicht: 1" (NO_WORKER) - und im Emulator zaehlt dann niemand etwas.
+# Gekostet hat dieses Vergessen einen halben Pruefdurchgang.
+if [ -d "$SRC/worker_src" ]; then
+  cp -r "$SRC/worker_src" "$DST/"
+fi
 cp "$SRC/package.json" "$SRC/wscript" "$DST/"
 if [ -d "$SRC/resources" ]; then
   rm -rf "$DST/resources"

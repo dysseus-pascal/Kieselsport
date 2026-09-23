@@ -41,7 +41,12 @@ awk 'BEGIN {
 echo "== Probe auf $UHR =="
 pebble install --emulator "$UHR" >/dev/null 2>&1 || {
   echo "Bau nicht aufgespielt - erst bauen, dann probieren"; exit 1; }
-sleep 3
+sleep 4
+
+# SEIT 0.6.0 STARTET DAS TRAINING NICHT MEHR VON SELBST: der Schirm sagt
+# "Select startet", und ohne diesen Druck zaehlt niemand etwas.
+pebble emu-button click select --emulator "$UHR" >/dev/null 2>&1
+sleep 2
 
 echo "-- Grundlinie setzen (Ruhe) --"
 pebble emu-accel custom "$ORDNER/ruhe.csv" --emulator "$UHR" >/dev/null 2>&1

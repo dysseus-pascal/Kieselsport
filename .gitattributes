@@ -1,0 +1,18 @@
+# Die Skripte in tools/ laufen in WSL, nicht in Windows. Mit CRLF bricht
+# jede Zeile mit einem "syntax error near unexpected token" ab - und zwar
+# erst beim Ausfuehren, nicht beim Auschecken.
+*.sh text eol=lf
+
+# Quelltext und Beschreibung bleiben ebenfalls bei LF: der Bau laeuft in
+# WSL, und ein Uebersetzer, der CRLF sieht, meldet es nicht, sondern
+# stolpert spaeter.
+*.c text eol=lf
+*.h text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+wscript text eol=lf
+
+# Bilder und Pakete sind keine Textdateien.
+*.png binary
+*.pbw binary
