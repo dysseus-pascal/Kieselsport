@@ -43,17 +43,17 @@ static void prv_stand_senden(void) {
   m.data0 = (uint16_t)(training_zustand() | (training_art() << 4));
   m.data1 = bot_kappe(t.dauer_s);
   m.data2 = (uint16_t)(puls | (frisch ? 0x8000 : 0));
-  worker_send_message(BotStand1, &m);
+  app_worker_send_message(BotStand1, &m);
 
   m.data0 = bot_kappe(t.schritte);
   m.data1 = bot_kappe(t.meter / 10);
   m.data2 = bot_kappe(t.kcal);
-  worker_send_message(BotStand2, &m);
+  app_worker_send_message(BotStand2, &m);
 
   m.data0 = t.saetze;
   m.data1 = t.reps;
   m.data2 = (uint16_t)(reps_laufend() | (reps_ruht() ? 0x8000 : 0));
-  worker_send_message(BotStand3, &m);
+  app_worker_send_message(BotStand3, &m);
 
   uint8_t brumm = BrummNichts;
   if (s_brumm != BrummNichts) {
@@ -64,12 +64,12 @@ static void prv_stand_senden(void) {
   m.data0 = reps_ruhe_s();
   m.data1 = t.bahnen;
   m.data2 = (uint16_t)((bahnen_bereit() ? 1 : 0) | (brumm << 4) | (zone << 8));
-  worker_send_message(BotStand4, &m);
+  app_worker_send_message(BotStand4, &m);
 
   m.data0 = (uint16_t)(t.beginn >> 16);
   m.data1 = (uint16_t)(t.beginn & 0xFFFF);
   m.data2 = puls_maximum();
-  worker_send_message(BotStand5, &m);
+  app_worker_send_message(BotStand5, &m);
 }
 
 static void prv_brumm_vormerken(uint8_t was) {
@@ -123,7 +123,7 @@ static void prv_speichern(void) {
   // EIN TRAINING UNTER EINER MINUTE IST KEINES - es geht nicht ans Telefon.
   if (t.dauer_s < 60) {
     abschnitt_leeren();
-    worker_send_message(BotVerworfen, &leer);
+    app_worker_send_message(BotVerworfen, &leer);
     return;
   }
   // Nicht auf dem Stapel: der ist im Worker klein.
@@ -132,7 +132,7 @@ static void prv_speichern(void) {
   if (abschnitt_anzahl() > 0) abschnitt_als_text(liste, sizeof(liste));
   wartend_merken(&t, liste);
   abschnitt_leeren();
-  worker_send_message(BotFertig, &leer);
+  app_worker_send_message(BotFertig, &leer);
 }
 
 static void prv_befehl(uint16_t typ, AppWorkerMessage *daten) {
@@ -158,7 +158,7 @@ static void prv_befehl(uint16_t typ, AppWorkerMessage *daten) {
       break;
     case BefehlVerwerfen:
       training_verwerfen();
-      worker_send_message(BotVerworfen, &leer);
+      app_worker_send_message(BotVerworfen, &leer);
       break;
     default:
       break;
@@ -167,14 +167,14 @@ static void prv_befehl(uint16_t typ, AppWorkerMessage *daten) {
 
 static void prv_init(void) {
   training_init();
-  worker_message_subscribe(prv_befehl);
+  app_worker_message_subscribe(prv_befehl);
   prv_starten_nach_bestellung();
   tick_timer_service_subscribe(SECOND_UNIT, prv_tick);
 }
 
 static void prv_ende(void) {
   tick_timer_service_unsubscribe();
-  worker_message_unsubscribe();
+  app_worker_message_unsubscribe();
   // Wird der Worker beendet, waehrend ein Training laeuft, bleibt sonst die
   // dichte Pulsmessung an - die teuerste Falle dieser App.
   puls_normal_messen();
