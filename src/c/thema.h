@@ -18,13 +18,14 @@
 //  Die Zonen    tragen ihre eigenen Farben (thema_zonenfarbe); sie fuellen
 //               das Herz in der Leiste und den Balken unter dem Puls.
 //
-// Alle Farben aus der 64er-Palette: ImperialPurple #550055, DarkGray #555555.
-// Violett, weil Blau (Drinktervall) und Orange (Flynformer) vergeben sind und
-// keine Pulszone violett ist - das Herz hebt sich in jeder Zone davon ab.
+// Alle Farben aus der 64er-Palette: DarkCandyAppleRed #AA0000, DarkGray
+// #555555. Rot, weil Sport etwas Aktives ist - und weil Blau (Drinktervall)
+// und Orange (Flynformer) vergeben sind. Das Herz traegt eine weisse Kontur,
+// damit es sich auch in Zone 5 (Folly, ebenfalls rot) von der Leiste abhebt.
 #define KS_FARBE_GRUND       GColorWhite
 #define KS_FARBE_TEXT        GColorBlack
 #define KS_FARBE_NEBEN       PBL_IF_COLOR_ELSE(GColorDarkGray, GColorBlack)
-#define KS_FARBE_LEISTE      PBL_IF_COLOR_ELSE(GColorImperialPurple, GColorBlack)
+#define KS_FARBE_LEISTE      PBL_IF_COLOR_ELSE(GColorDarkCandyAppleRed, GColorBlack)
 #define KS_FARBE_AUF_LEISTE  GColorWhite
 
 // Die Masse, je Schirm. Auf der runden Uhr ist die Leiste breiter, weil der

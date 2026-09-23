@@ -103,8 +103,8 @@ Training. Was eine Taste gerade nicht tut, steht auch nicht da.
 ### Das Timeline-Design
 
 Seit 0.7.0 sieht Kieselsport aus wie Drinktervall und Flynformer: weisser
-Grund, schwarze Schrift, rechts eine violette Leiste — Blau und Orange sind
-an die beiden anderen vergeben, und keine Pulszone ist violett. Der laufende Schirm
+Grund, schwarze Schrift, rechts eine dunkelrote Leiste — Sport ist etwas
+Aktives, und Blau und Orange sind an die beiden anderen vergeben. Der laufende Schirm
 ist gebaut wie ein Eintrag der Pebble-Timeline — oben die Uhrzeit, dann eine
 kleine Zeile mit der Sportart, die grosse Zahl in LECO, darunter Puls und Zone
 mit dem Balken und die kleinen Felder. Oben in der Leiste sitzt ein **Herz**:
