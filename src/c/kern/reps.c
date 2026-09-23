@@ -17,6 +17,19 @@
 // Kuerzer als das ist keine Wiederholung, laenger als das keine mehr.
 #define MIN_ABSTAND 12       //< Messungen, also rund eine halbe Sekunde
 
+// WIE LANGE DER AUSSCHLAG ANHALTEN MUSS, bevor er als Wiederholung zaehlt.
+//
+// NACHGEMESSEN, NICHT GESCHAETZT: im Emulator eingespeistes Schuetteln mit
+// 12,5 Hz - jede Messung das andere Vorzeichen - ergab 21 Wiederholungen in
+// zehn Sekunden. Die Sperrzeit allein deckelt eben nur auf zwei je Sekunde;
+// sie sagt nichts darueber, ob die Bewegung eine Bewegung war.
+//
+// Drei Messungen sind 0,12 Sekunden. Eine gehobene Hantel steht laenger
+// oben als das (gemessen: acht Messungen bei einer Wiederholung je
+// Sekunde), ein Zittern nie: bei 12,5 Hz dauert jede Halbwelle eine
+// einzige Messung.
+#define HALTEN 3
+
 static bool s_an;
 static bool s_pausiert;
 static uint8_t s_empfind = 2;
@@ -25,6 +38,7 @@ static uint16_t s_pausenziel = 90;
 static int32_t s_basis;          //< gleitender Mittelwert der Staerke
 static int32_t s_bewegung;       //< gleitender Mittelwert der Abweichung
 static bool s_oben;              //< ueber der oberen Schwelle gewesen?
+static uint8_t s_haelt;          //< Messungen in Folge ueber der Schwelle
 static uint16_t s_seit_rep;      //< Messungen seit der letzten Wiederholung
 
 static uint16_t s_reps;
@@ -80,7 +94,12 @@ static void prv_daten(AccelData *daten, uint32_t anzahl) {
     // die Bewegung vorher unten WAR. Sonst zaehlte ein Zittern an der
     // Schwelle zwanzig Wiederholungen in einer Sekunde.
     const int32_t schwelle = prv_schwelle();
-    if (!s_oben && abw > schwelle) {
+    if (abw > schwelle) {
+      if (s_haelt < 0xFF) s_haelt++;
+    } else {
+      s_haelt = 0;
+    }
+    if (!s_oben && s_haelt >= HALTEN) {
       s_oben = true;
       if (s_seit_rep >= MIN_ABSTAND) {
         s_reps++;
@@ -103,6 +122,7 @@ void reps_start(void) {
   s_basis = 0;
   s_bewegung = 0;
   s_oben = false;
+  s_haelt = 0;
   s_seit_rep = MIN_ABSTAND;
   s_reps = 0;
   s_saetze = 0;
@@ -182,6 +202,12 @@ void reps_tick(uint16_t sekunde) {
     s_gebrummt = true;
   }
 
+#ifdef KS_ECHT_SENSOR
+  APP_LOG(APP_LOG_LEVEL_INFO, "Kraft s=%u reps=%u saetze=%u bewegung=%d ruht=%d basis=%d",
+          (unsigned)sekunde, (unsigned)s_reps, (unsigned)s_saetze,
+          (int)s_bewegung, (int)s_ruht, (int)s_basis);
+#endif
+
   // Ein Satz beginnt mit seiner ERSTEN Wiederholung, nicht mit dem Druck
   // auf Start: dazwischen liegt das Hinlaufen zur Bank.
   if (!s_ruht && s_reps == 1) s_satz_beginn = sekunde;
@@ -197,7 +223,7 @@ static bool prv_demo_ruht(void) { return (s_demo % DEMO_ZYKLUS) >= DEMO_SATZ; }
 #endif
 
 uint16_t reps_laufend(void) {
-#ifdef KS_DEMO
+#if defined(KS_DEMO) && !defined(KS_ECHT_SENSOR)
   return prv_demo_ruht() ? 0 : (uint16_t)((s_demo % DEMO_ZYKLUS) / 3);
 #else
   return s_reps;
@@ -205,7 +231,7 @@ uint16_t reps_laufend(void) {
 }
 
 bool reps_ruht(void) {
-#ifdef KS_DEMO
+#if defined(KS_DEMO) && !defined(KS_ECHT_SENSOR)
   return prv_demo_ruht();
 #else
   return s_ruht;
@@ -213,7 +239,7 @@ bool reps_ruht(void) {
 }
 
 uint16_t reps_ruhe_s(void) {
-#ifdef KS_DEMO
+#if defined(KS_DEMO) && !defined(KS_ECHT_SENSOR)
   return prv_demo_ruht() ? (uint16_t)((s_demo % DEMO_ZYKLUS) - DEMO_SATZ) : 0;
 #else
   return s_ruhe_dauer;
@@ -221,7 +247,7 @@ uint16_t reps_ruhe_s(void) {
 }
 
 uint16_t reps_saetze(void) {
-#ifdef KS_DEMO
+#if defined(KS_DEMO) && !defined(KS_ECHT_SENSOR)
   return (uint16_t)(s_demo / DEMO_ZYKLUS);
 #else
   return s_saetze;

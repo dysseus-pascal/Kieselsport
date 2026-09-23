@@ -4,6 +4,11 @@
 # Ohne Argument wird $KIESELSPORT_SRC verwendet.
 #
 # Schalter als zweites Argument:
+#   sensor -DKS_DEMO -DKS_ECHT_SENSOR   wie demo, aber MIT der echten
+#                              Sensorrechnung: Puls bleibt erfunden, Bahnen
+#                              und Wiederholungen werden wirklich gezaehlt.
+#                              Dazu speist man den Kompass ein:
+#                              pebble emu-compass --heading <grad> --calibrated
 #   demo   -DKS_DEMO   Beispieldaten einsetzen, damit sich die Anzeige im
 #                      Emulator ansehen laesst. Ohne Telefon kommt sonst nie
 #                      etwas an, und der Schirm bliebe auf "Keine Navigation".
@@ -38,9 +43,14 @@ cd "$DST" || exit 1
 # Welche Sportart der Pruefbau gleich oeffnet. Kraft und Schwimmen haben
 # eigene Schirme, die sich sonst im Emulator nie zeigen.
 ART="${3:-ArtLaufen}"
+if [ "$MODE" = sensor ]; then
+  FLAGS="'-DKS_DEMO', '-DKS_ECHT_SENSOR'"
+else
+  FLAGS="'-DKS_DEMO'"
+fi
 
 case "$MODE" in
-  demo)
+  demo|sensor)
     # Den Schalter NUR in der Kopie einsetzen. Uebernommen aus SupCycle, wo
     # dieselbe Stelle schon zweimal danebenging:
     #
@@ -56,7 +66,7 @@ case "$MODE" in
     ANKER="    build_worker = os.path.exists('worker_src')"
     {
       echo "    for _e in ctx.all_envs.values():"
-      echo "        _e.append_value('CFLAGS', ['-DKS_DEMO', '-DKS_DEMO_ART=${ART}'])"
+      echo "        _e.append_value('CFLAGS', [${FLAGS}, '-DKS_DEMO_ART=${ART}'])"
       echo ""
       echo "$ANKER"
     } > /tmp/ks_patch.txt
@@ -64,7 +74,7 @@ case "$MODE" in
          $0==anchor{printf "%s", p; next} {print}' wscript > /tmp/ks_wscript
     mv /tmp/ks_wscript wscript
     grep -q "append_value('CFLAGS'" wscript || { echo "FEHLER: Schalter nicht eingesetzt"; exit 1; }
-    echo "Pruefbau mit -DKS_DEMO, Art ${ART}"
+    echo "Pruefbau ${MODE}, Art ${ART}"
     ;;
   "") ;;
   *)  echo "Unbekannter Schalter: $MODE"; exit 1 ;;

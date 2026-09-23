@@ -316,6 +316,52 @@ nächste Start der App schickt sie noch einmal.
 Die Uhr weiss von alldem nichts weiter. Sie misst und meldet; was daraus wird,
 entscheidet [Kiesel-Helper](https://github.com/dysseus-pascal/Kiesel-Helper).
 
+## Was der Emulator prüfen kann — und was nicht
+
+Zwei Zähler, zwei Sensoren, zwei sehr verschiedene Antworten.
+
+### Der Wiederholungszähler: nachgemessen
+
+`pebble emu-accel custom <datei>` spielt bis zu 255 Messungen in den Emulator,
+eine Zeile `x,y,z` in Milli-g je Messung. Bei 25 Hz sind das zehn Sekunden.
+**Eine Wiederholung ist nichts anderes als eine Schwingung** — und die kann man
+schreiben, statt sie zu machen. `tools/kraft_probe.sh` tut genau das:
+
+| eingespeist | erwartet | gemessen |
+|---|---|---|
+| 10 Schwingungen à 1 s, 400 mg | 10 | **10** |
+| danach 4 s Ruhe | Satz zu Ende | **1 Satz** |
+| Schütteln, 12,5 Hz, 350 mg, 10 s | möglichst 0 | **1** |
+| Rauschen, 25 mg | 0 | **0** |
+
+**Die Zeile mit dem Schütteln ist der Grund für eine Regel, die es vorher nicht
+gab.** Dieselbe Messung ergab zunächst **21** Wiederholungen: die Sperrzeit von
+einer halben Sekunde deckelt eben nur auf zwei je Sekunde, sie sagt nichts
+darüber, ob die Bewegung eine Bewegung *war*. Seit 0.5.1 muss der Ausschlag
+drei Messungen lang anhalten (0,12 s). Eine gehobene Hantel steht länger oben
+als das — gemessen acht Messungen bei einer Wiederholung je Sekunde —, ein
+Zittern nie: bei 12,5 Hz dauert jede Halbwelle eine einzige Messung.
+
+Aus 21 wurde damit 1, und die zehn echten blieben zehn.
+
+### Der Bahnenzähler: nicht prüfbar
+
+**Der Emulator hat keinen Kompass.** `pebble emu-compass --heading …` läuft
+ohne Fehlermeldung durch, aber die App bekommt nichts: beim Abonnieren kommt
+genau ein Ereignis mit `compass_status = -1`, also
+`CompassStatusUnavailable`, und danach nichts mehr. Geprüft auf emery und
+gabbro. `tools/bahnen_probe.sh` spielt eine Wende trotzdem durch — es zeigt
+dann eben, dass nichts ankommt.
+
+**Genau dieses Nichts hat einen Fehler gefunden.** Die erste Fassung hielt den
+Kompass für brauchbar, sobald der Zustand *ungleich* „ungültig" war — und −1
+ist nun einmal ungleich 0. Auf einer Uhr ohne Magnetometer hätte der Schirm
+also ruhig „0 Bahnen" gezeigt, statt zu sagen, dass hier nichts zu zählen ist.
+Seit 0.5.1 gilt der Kompass nur als bereit, wenn er *kalibriert* oder *am
+Kalibrieren* ist.
+
+Ob die Zählung selbst stimmt, weiss erst das Wasser.
+
 ## Bauen
 
 ```bash
@@ -335,6 +381,11 @@ neu und checkt sie selbst ein (`.github/workflows/bauen.yml`). Steht in der
 Lauf das Release samt Tag und `.pbw` an. Sie stand einmal
 vier Fassungen hinter den Quellen — wer sie installierte, bekam eine Uhr ohne
 Startmeldung, ohne Sätze und ohne Bahnen.
+
+Der Schalter `sensor` tut dasselbe, lässt aber die **echte** Rechnung laufen:
+Puls bleibt erfunden, Wiederholungen und Bahnen werden wirklich gezählt, und
+die App schreibt ihre Zwischenwerte ins Protokoll. Nur so lassen sich
+eingespeiste Sensorwerte nachmessen (siehe oben).
 
 Der Schalter `demo` erfindet Puls und Summen und springt gleich ins Training.
 Ohne ihn lässt sich der laufende Schirm im Emulator nie ansehen: dort gibt es
