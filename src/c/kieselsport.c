@@ -5,6 +5,7 @@
 #include "glanz.h"
 #include "botschaft.h"
 #include "thema.h"
+#include "strings.h"
 
 // Kieselsport - Training auf der Uhr, Auswertung im eigenen Haus.
 //
@@ -81,6 +82,9 @@ static void prv_vom_worker(uint16_t typ, AppWorkerMessage *daten) {
 }
 
 static void prv_init(void) {
+  // Die Sprache der Uhr einmal lesen, bevor irgendein Text gezeichnet wird.
+  // Auch der Glance beim Beenden nimmt sie von hier.
+  strings_refresh();
   telefon_init();
   app_worker_message_subscribe(prv_vom_worker);
 

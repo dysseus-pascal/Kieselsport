@@ -9,7 +9,33 @@
 
 var Clay = require('@rebble/clay');
 var clayConfig = require('./config');
-var clay = new Clay(clayConfig);
+
+// --- Die Sprache ---
+//
+// DIE SPRACHE DES TELEFONS, NICHT DIE DER UHR. Die Schwester-Apps lassen sich
+// die Uhrsprache per MESSAGE_KEY_LANG melden; Kieselsport hat diesen
+// Schluessel nicht, und ihn nachzuruesten hiesse eine neue Nachricht der Uhr,
+// die Kiesel-Helper mitliest (es hoert jede AppMessage mit) und einordnen
+// muesste. navigator.language dagegen steht sofort bereit - auch beim
+// allerersten Oeffnen der Konfigseite, bevor die Uhr je etwas geschickt hat -
+// und fast immer spricht das Telefon dieselbe Sprache wie die Uhr. Fehlt es
+// (manche JS-Umgebungen der Pebble-App haben kein navigator), gilt Englisch.
+//
+// 0 Englisch, 1 Deutsch, 2 Franzoesisch, 3 Italienisch, 4 Spanisch - wie die
+// Spalten in src/c/strings_table.h.
+function sprache() {
+  var code = '';
+  try {
+    code = String((typeof navigator !== 'undefined' && navigator &&
+                   (navigator.language || (navigator.languages && navigator.languages[0]))) || '');
+  } catch (x) { code = ''; }
+  code = code.substring(0, 2).toLowerCase();
+  var i = ['en', 'de', 'fr', 'it', 'es'].indexOf(code);
+  return i < 0 ? 0 : i;
+}
+
+var SPRACHE = sprache();
+var clay = new Clay(clayConfig(SPRACHE));
 
 // --- Der Pin "Training" in der Timeline ---
 //
@@ -22,7 +48,16 @@ var clay = new Clay(clayConfig);
 // Erst die App-eigene Schnittstelle (Pebble.insertTimelinePin, neue
 // Pebble-App), sonst die Rebble-REST-API mit dem Timeline-Token.
 var API_URL = 'https://timeline-api.rebble.io/v1/user/pins/';
-var ARTEN = ['Laufen', 'Strasse/Gravel', 'Wandern', 'Kraft', 'MTB', 'Yoga', 'Schwimmen'];
+var ARTEN = clayConfig.arten(SPRACHE);
+// Titel und Aktion des Pins je Sprache (Reihenfolge wie oben). Der
+// Untertitel bleibt "Kieselsport" - ein Name, nichts zu uebersetzen.
+var PIN_TEXT = [
+  { titel: 'Workout: ', starten: 'Start now' },
+  { titel: 'Training: ', starten: 'Jetzt starten' },
+  { titel: 'Entraînement : ', starten: 'Démarrer' },
+  { titel: 'Allenamento: ', starten: 'Inizia ora' },
+  { titel: 'Entrenamiento: ', starten: 'Empezar ya' },
+];
 
 function pad(n) { return (n < 10 ? '0' : '') + n; }
 
@@ -34,17 +69,18 @@ function pinEinstellungen() {
 }
 
 function bauePin(art, wann) {
+  var pinText = PIN_TEXT[SPRACHE] || PIN_TEXT[0];
   var y = wann.getFullYear(), m = wann.getMonth() + 1, d = wann.getDate();
   return {
     id: 'kieselsport-' + y + pad(m) + pad(d),
     time: wann.toISOString(),
     layout: {
       type: 'genericPin',
-      title: 'Training: ' + ARTEN[art - 1],
+      title: pinText.titel + ARTEN[art - 1],
       subtitle: 'Kieselsport',
       tinyIcon: 'system://images/ACTIVITY',
     },
-    actions: [{ title: 'Jetzt starten', type: 'openWatchApp', launchCode: art }],
+    actions: [{ title: pinText.starten, type: 'openWatchApp', launchCode: art }],
   };
 }
 

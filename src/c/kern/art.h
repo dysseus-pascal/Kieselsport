@@ -33,9 +33,11 @@ typedef enum {
 } Sportart;
 
 // Was eine Art an Kennzahlen hergibt. Zeit und Puls können alle.
+//
+// Name und Obertitel stehen NICHT hier, sondern in art.c hinter
+// #ifndef KS_WORKER: sie haengen an der Sprache der Uhr (strings.h), und die
+// Texttabelle gibt es nur in der App - der Worker zeigt nichts an.
 typedef struct {
-  const char *name;
-  const char *gruppe;  //< Obertitel im Menü, oder NULL
   bool schritte;       //< Schritte zählen sinnvoll?
   bool distanz;        //< Strecke aus Schritten ableitbar?
   bool reps;           //< Wiederholungen und Pausen zählen?
@@ -44,8 +46,11 @@ typedef struct {
 
 const ArtInfo *art_info(Sportart art);
 
-// Der Name, auch für eine Art ausserhalb des Bereichs (dann "?").
+#ifndef KS_WORKER
+// Der Name in der Sprache der Uhr, auch für eine Art ausserhalb des
+// Bereichs (dann "?"). Nur in der App.
 const char *art_name(Sportart art);
 
-// Der Obertitel im Menü - "Bike" bei den beiden, sonst NULL.
+// Der Obertitel im Menü - "Bike" bei den beiden, sonst NULL. Nur in der App.
 const char *art_gruppe(Sportart art);
+#endif

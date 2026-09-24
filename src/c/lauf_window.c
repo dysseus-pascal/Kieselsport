@@ -4,6 +4,7 @@
 #include "schluessel.h"
 #include "puls.h"
 #include "thema.h"
+#include "strings.h"
 
 // Der laufende Schirm.
 //
@@ -133,13 +134,13 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     prv_zeit(text, sizeof(text), s.sekunden);
     prv_text(ctx, text, gross_schrift, GRect(rand, y, breite, gross_h), GTextAlignmentLeft);
     y += gross_h;
-    prv_text(ctx, "Gespeichert", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    prv_text(ctx, S(STR_GESPEICHERT), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
     y += titel_h;
     graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
     const bool wartet = telefon_wartet();
     const bool aufgegeben = wartet && time(NULL) - s_gespeichert_seit >= BESTAETIGUNG_S;
-    prv_text(ctx, aufgegeben ? "Telefon nicht erreichbar,\ngeht beim nächsten Öffnen"
-                 : wartet ? "geht ans Telefon …" : "beim Telefon angekommen",
+    prv_text(ctx, aufgegeben ? S(STR_TEL_AUFGEGEBEN)
+                 : wartet ? S(STR_TEL_WARTET) : S(STR_TEL_ANGEKOMMEN),
              KS_BREIT ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14,
              GRect(rand, y, breite, 22), GTextAlignmentLeft);
     thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
@@ -151,15 +152,17 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     prv_text(ctx, "Kieselsport", FONT_KEY_GOTHIC_14, GRect(rand, y, breite, 16), GTextAlignmentLeft);
     y += 14 + gross_h;
     graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
-    prv_text(ctx, "Hole den Stand …", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    prv_text(ctx, S(STR_HOLE_STAND), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
     thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
     return;
   }
 
   // --- Die kleine Zeile: Art und Zustand ---
-  char zeile[32];
-  if (s_bereit) snprintf(zeile, sizeof(zeile), "%s · bereit", art_name(s_art));
-  else if (s.zustand == LaufPause) snprintf(zeile, sizeof(zeile), "%s · Pause", art_name(s_art));
+  // 40 statt 32 Bytes: "Ruta/Gravel · listo" und Akzente brauchen mehr
+  // als das deutsche "Laufen · bereit".
+  char zeile[40];
+  if (s_bereit) snprintf(zeile, sizeof(zeile), S(STR_ZEILE_BEREIT), art_name(s_art));
+  else if (s.zustand == LaufPause) snprintf(zeile, sizeof(zeile), S(STR_ZEILE_PAUSE), art_name(s_art));
   else if (info->reps) {
     // Beim Kraft steht die Gesamtzeit hier oben: gross ist unten der Satz.
     char zeit[16];
@@ -180,10 +183,10 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   if (info->reps && !s_bereit && s.zustand != LaufPause) {
     if (s.ruht) {
       prv_zeit(text, sizeof(text), s.ruhe_s);
-      gross_name = "Pause";
+      gross_name = S(STR_GROSS_PAUSE);
     } else {
       snprintf(text, sizeof(text), "%u", (unsigned)s.laufend);
-      gross_name = "Wdh.";
+      gross_name = S(STR_GROSS_WDH);
     }
   } else {
     prv_zeit(text, sizeof(text), s_bereit ? 0 : s.sekunden);
@@ -203,7 +206,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   // --- Der Titel: Puls und Zone, mit dem Balken darunter ---
   graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
   if (s_bereit) {
-    prv_text(ctx, "Select startet", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    prv_text(ctx, S(STR_SELECT_STARTET), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
     y += titel_h;
   } else if (s.puls > 0) {
     // EIN ALTER WERT STEHT GRAU DA und traegt keine Zone. Der Sensor behaelt
@@ -211,11 +214,11 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     // eine halbe Stunde "75" in Schwarz saehe aus wie eine Messung.
     if (!s.frisch) {
       graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-      snprintf(text, sizeof(text), "%u · alt", (unsigned)s.puls);
+      snprintf(text, sizeof(text), S(STR_PULS_ALT), (unsigned)s.puls);
     } else if (s.zone == 0) {
-      snprintf(text, sizeof(text), "%u · < Zone 1", (unsigned)s.puls);
+      snprintf(text, sizeof(text), S(STR_PULS_UNTER), (unsigned)s.puls);
     } else {
-      snprintf(text, sizeof(text), "%u · Zone %d", (unsigned)s.puls, s.zone);
+      snprintf(text, sizeof(text), S(STR_PULS_ZONE), (unsigned)s.puls, s.zone);
     }
     prv_text(ctx, text, titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
     y += titel_h;
@@ -236,7 +239,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     y += 12;
   } else {
     graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, "kein Puls", titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
+    prv_text(ctx, S(STR_KEIN_PULS), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
     y += titel_h;
   }
 
@@ -257,17 +260,17 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     felder++;
   }
   if (info->reps) {
-    namen[felder] = "Saetze";
+    namen[felder] = S(STR_FELD_SAETZE);
     snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.saetze);
     felder++;
     // NICHT NOCHMAL "Wdh.": das steht schon gross oben. Hier zaehlt das
     // Training zusammen, dort der laufende Satz.
-    namen[felder] = "Gesamt";
+    namen[felder] = S(STR_FELD_GESAMT);
     snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.reps);
     felder++;
   }
   if (info->bahnen) {
-    namen[felder] = "Bahnen";
+    namen[felder] = S(STR_FELD_BAHNEN);
     snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.bahnen);
     felder++;
     namen[felder] = "m";
@@ -276,7 +279,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   }
   if (info->schritte) {
     // Auf schmalen Spalten abgekuerzt: "Schrit..." sagt weniger als "Schr."
-    namen[felder] = (breite / (info->distanz ? 3 : 2)) < 50 ? "Schr." : "Schritte";
+    namen[felder] = (breite / (info->distanz ? 3 : 2)) < 50 ? S(STR_FELD_SCHR_KURZ) : S(STR_FELD_SCHRITTE);
     snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.schritte);
     felder++;
   }
@@ -315,32 +318,32 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   // Fehlgriff kostete frueher ein Training. Was eine Taste gerade nicht tut,
   // steht auch nicht da.
   if (s_speichert) {
-    fuss = "Speichere …";
+    fuss = S(STR_FUSS_SPEICHERE);
   } else if (s_verwerfen_bis > time(NULL)) {
     mitte = SymbolStart;
     unten = SymbolLoeschenFrage;
-    fuss = "Nochmal Unten: verwerfen";
+    fuss = S(STR_FUSS_NOCHMAL);
   } else if (s.zustand == LaufPause) {
     oben = SymbolSpeichern;
     mitte = SymbolStart;
     unten = SymbolLoeschen;
-    fuss = "Oben speichert, Unten verwirft";
+    fuss = S(STR_FUSS_PAUSE);
   } else if (s_bereit) {
     mitte = SymbolStart;
     // OHNE TELEFON KEINE STRECKE: das Telefon zeichnet sie auf, die Uhr hat
     // kein GPS. Wer das vor dem Start liest, kann das Telefon holen - danach
     // ist es zu spaet.
     if (info->distanz && !connection_service_peek_pebble_app_connection()) {
-      fuss = "Kein Telefon: keine Strecke";
+      fuss = S(STR_FUSS_KEIN_TEL);
     }
   } else {
     mitte = SymbolPause;
     if (s.sparsam) {
-      fuss = "Akku schwach: Puls alle 5 s";
+      fuss = S(STR_FUSS_AKKU);
     } else if (info->bahnen && !s.kompass) {
       // LIEBER SAGEN, DASS NICHT GEZAEHLT WIRD, als eine Null zeigen. Eine
       // Null bei den Bahnen sieht aus wie "du bist noch keine geschwommen".
-      fuss = "Kompass nicht bereit";
+      fuss = S(STR_FUSS_KOMPASS);
     }
   }
   if (fuss) {

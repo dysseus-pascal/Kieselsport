@@ -1,4 +1,5 @@
 #include "glanz.h"
+#include "strings.h"
 
 static bool s_laeuft;
 static Sportart s_art;
@@ -10,13 +11,20 @@ static void prv_fuellen(AppGlanceReloadSession *sitzung, size_t platz, void *con
   // DIE ZEIT ZAEHLT DIE UHR SELBST. Der Text ist eine Vorlage: time_since
   // rechnet das System beim Anzeigen aus, nicht die App beim Verlassen -
   // sonst stuende eine halbe Stunde spaeter noch "seit 2 min" da.
-  char vorlage[96];
+  //
+  // DER KOPF KOMMT AUS DER TEXTTABELLE, die Vorlage nicht: "%s im Hintergrund,
+  // seit " ist Sprache, die Klammer dahinter Syntax des Systems - und die
+  // darf keine Uebersetzung anfassen. 128 Bytes, weil "Ruta/Gravel en
+  // segundo plano, desde hace " samt Vorlage nicht mehr in 96 passt.
+  char vorlage[128];
   if (s_beginn > 0) {
+    char kopf[64];
+    snprintf(kopf, sizeof(kopf), S(STR_GLANZ_SEIT), art_name(s_art));
     snprintf(vorlage, sizeof(vorlage),
-             "%s im Hintergrund, seit {time_since(%lu)|format('>0S:%%aS','>0M:%%aM','>0H:%%aH')}",
-             art_name(s_art), (unsigned long)s_beginn);
+             "%s{time_since(%lu)|format('>0S:%%aS','>0M:%%aM','>0H:%%aH')}",
+             kopf, (unsigned long)s_beginn);
   } else {
-    snprintf(vorlage, sizeof(vorlage), "%s im Hintergrund", art_name(s_art));
+    snprintf(vorlage, sizeof(vorlage), S(STR_GLANZ_HINTERGRUND), art_name(s_art));
   }
 
   AppGlanceSlice scheibe = {
@@ -29,7 +37,7 @@ static void prv_fuellen(AppGlanceReloadSession *sitzung, size_t platz, void *con
   if (app_glance_add_slice(sitzung, scheibe) != APP_GLANCE_RESULT_SUCCESS) {
     // Versteht die Uhr die Vorlage nicht, wenigstens das Wesentliche.
     char schlicht[48];
-    snprintf(schlicht, sizeof(schlicht), "%s im Hintergrund", art_name(s_art));
+    snprintf(schlicht, sizeof(schlicht), S(STR_GLANZ_HINTERGRUND), art_name(s_art));
     scheibe.layout.subtitle_template_string = schlicht;
     app_glance_add_slice(sitzung, scheibe);
   }

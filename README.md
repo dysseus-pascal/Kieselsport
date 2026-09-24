@@ -260,6 +260,25 @@ Eine Null bei den Bahnen sähe aus wie »du bist noch keine geschwommen«.
 durch Wasser zwischen Haut und Glas schlecht; die Zahl steht da, aber sie ist
 weicher als an Land. Die Bahnen sind davon unberührt.
 
+## Sprache
+
+Seit 0.12.0 spricht die App **Deutsch, Englisch, Französisch, Italienisch und
+Spanisch**. Einen eigenen Schalter gibt es nicht: die App folgt der Sprache der
+Uhr (Einstellungen → Anzeige → Sprache), jede andere Sprache bekommt Englisch.
+Übersetzt sind die Sportarten, der laufende Schirm, der Schirm nach dem
+Speichern und der Hinweis im Startmenü. Alle Texte stehen in
+`src/c/strings_table.h`, eine Zeile je Text – dasselbe Muster wie in den
+Schwester-Apps. Sie sind knapp gehalten, weil die schmalste Spalte auf flint
+gut hundert Punkte breit ist.
+
+Die Konfigseite und der Timeline-Pin richten sich nach der Sprache des
+**Telefons** (`navigator.language`), nicht der Uhr: Kieselsport meldet seine
+Sprache nicht ans Telefon, und eine neue Nachricht dafür müsste auch
+Kiesel-Helper verstehen. Fast immer sprechen beide dieselbe Sprache.
+
+Was ans Telefon geht, ändert sich nicht: die Sportart bleibt eine Zahl, und die
+Schlüssel und Nachrichten an Kiesel-Helper sind dieselben wie vorher.
+
 ## Was sie schickt
 
 | Feld | Nummer | Bedeutung |
