@@ -44,6 +44,9 @@ static bool s_letzte_war_kurve;
 static uint16_t s_kurve_unterwegs;
 static AppTimer *s_kurve_timer;
 
+// Die letzte Nachricht war die Einstellungsmeldung (siehe unten).
+static bool s_letzte_war_einst;
+
 static void prv_kurve_senden(void *data) {
   s_kurve_timer = NULL;
   if (s_hat_wartende || !kurve_wartet()) return;
@@ -75,7 +78,6 @@ static void prv_sende_jetzt(void);
 // Zusammenfassung und die Kurve gehen vor, die Meldung wartet, bis der
 // Postausgang frei ist.
 static bool s_einst_offen;
-static bool s_letzte_war_einst;
 static AppTimer *s_einst_timer;
 static uint8_t s_einst_versuche;
 
