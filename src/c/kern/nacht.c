@@ -70,7 +70,7 @@ static void prv_fenster_ende(void) {
   const time_t jetzt = time(NULL);
   HealthValue puls = 0;
   if (health_service_metric_averaged_accessible(HealthMetricHeartRateBPM, s_mess_seit, jetzt,
-                                                HealthAggregationAvg, HealthServiceTimeScopeOnce)
+                                                HealthServiceTimeScopeOnce)
       & HealthServiceAccessibilityMaskAvailable) {
     puls = health_service_aggregate_averaged(HealthMetricHeartRateBPM, s_mess_seit, jetzt,
                                              HealthAggregationAvg, HealthServiceTimeScopeOnce);
