@@ -207,6 +207,55 @@ gibt es nur in der App. Beim Speichern legt der Worker die Zusammenfassung
 deshalb in den Persist, und die App schickt sie — und fasst nach, bis das
 Telefon sie bestätigt hat, auch beim nächsten Start noch.
 
+## Schlaf und HRV
+
+Seit 0.14.0 misst Kieselsport auch die Nacht, und HRV auf Knopfdruck.
+**Herzintervall ist darin aufgegangen**; Kiesel-Helper hört nur noch auf
+Kieselsport.
+
+**Warum hier.** Die Uhr erlaubt genau einen Hintergrund-Worker, und
+Kieselsport hat ihn — fürs Training. Nachts trainiert niemand; also misst
+derselbe Worker in dieser Zeit den Schlaf. Er läuft deshalb jetzt dauernd;
+ohne Training tickt er nur jede Minute, das kostet so gut wie nichts. Die App
+beendet ihn nicht mehr, und jedes Öffnen fährt ihn hoch, falls er aus ist.
+Ob ein Training läuft, steht im Persist (`PERSIST_LAEUFT`), nicht mehr in
+»Worker läuft«.
+
+**Im Zeitfenster** (Vorgabe 22:00–08:00, einstellbar auf der Konfigseite und
+in Kiesel-Helper, abschaltbar):
+
+- Bewegung und Puls je Minute zeichnet die Uhr ohnehin auf
+  (`HealthMinuteData`) — dafür muss nichts laufen.
+- **Alle 30 Minuten fünf Minuten HRV**: der Worker bittet den Sensor um die
+  Schlagabstände und merkt sich RMSSD und mittleren Puls des Fensters. Dauernd
+  zu messen kostete zu viel Akku.
+- Ein Training schlägt die Nacht: ein laufendes Fenster endet beim Start.
+
+**Am Ende des Fensters** holt der Worker die App nach vorn — senden kann nur
+sie. Ein kleiner Schirm sagt »Schlaf geht ans Telefon …«; die App liest die
+Minuten der Nacht, schickt sie in Stücken zu 150 Minuten (`NACHT_*`, siehe
+unten) und geht wieder zu, sobald alles drüben ist, spätestens nach einer
+Minute. Ist das Telefon nicht da, bleibt die Nacht im Persist und geht beim
+nächsten Öffnen, ab dem letzten bestätigten Stück.
+
+**Ausgewertet wird auf dem Telefon.** Schlaf oder wach, Tiefschlaf, REM und
+Ruhepuls rechnet Kiesel-Helper aus den Minuten und den HRV-Fenstern — dort
+lässt sich ein Verfahren prüfen und nachstellen, auf der Uhr nicht.
+
+**HRV auf Knopfdruck**: der letzte Eintrag im Menü. Eine Minute still sitzen,
+Select startet; am Ende steht der RMSSD da und geht ans Telefon (`HRV` mit
+`HRV_ZEIT`). Das war Herzintervall.
+
+| Feld | Nummer | Bedeutung |
+|---|---|---|
+| `NACHT_AN` | 10023 | hinein und hinaus, 0/1 |
+| `NACHT_VON`, `NACHT_BIS` | 10024, 10025 | hinein und hinaus, Minuten seit Mitternacht (hinein auch `HH:MM`) |
+| `NACHT_BEGINN` | 10026 | Unix-Sekunden der ersten Minute |
+| `NACHT_AB`, `NACHT_ANZAHL` | 10027, 10028 | erstes Minute dieses Stücks, Minuten insgesamt (≤ 720) |
+| `NACHT_MINUTEN` | 10029 | 2 Byte je Minute: Bewegung (√(vmc·16), 255 = keine Daten), Puls |
+| `NACHT_HRV` | 10030 | nur im ersten Stück, 4 Byte je Fenster: Minute (u16), RMSSD, Puls |
+| `HRV_ZEIT` | 10031 | Zeitpunkt einer Einzelmessung |
+
 ## Krafttraining: Sätze ohne Knopfdruck
 
 Wer eine Hantel hält, drückt keine Taste. Die Uhr merkt deshalb selbst, was

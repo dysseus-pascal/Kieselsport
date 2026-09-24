@@ -1,5 +1,6 @@
 #include "einstellungen.h"
 #include "schluessel.h"
+#include "nacht.h"
 
 // Dieselben Grenzen wie in puls.c, reps.c und bahnen.c: was dort beim Lesen
 // verworfen wuerde, soll hier gar nicht erst hinein.
@@ -37,6 +38,20 @@ void einstellungen_pin_zeit(const char *hhmm) {
   persist_write_string(PERSIST_PIN_ZEIT, hhmm);
 }
 
+void einstellungen_nacht_an(bool an) {
+  persist_write_bool(PERSIST_NACHT_AN, an);
+}
+
+void einstellungen_nacht_von(int32_t minuten) {
+  if (minuten < 0 || minuten >= 24 * 60) return;
+  persist_write_int(PERSIST_NACHT_VON, minuten);
+}
+
+void einstellungen_nacht_bis(int32_t minuten) {
+  if (minuten < 0 || minuten >= 24 * 60) return;
+  persist_write_int(PERSIST_NACHT_BIS, minuten);
+}
+
 static int32_t prv_lies(uint32_t schluessel, int32_t vorgabe) {
   return persist_exists(schluessel) ? persist_read_int(schluessel) : vorgabe;
 }
@@ -51,4 +66,7 @@ void einstellungen_melden(DictionaryIterator *out) {
   char zeit[8] = "18:00";
   if (persist_exists(PERSIST_PIN_ZEIT)) persist_read_string(PERSIST_PIN_ZEIT, zeit, sizeof(zeit));
   dict_write_cstring(out, MESSAGE_KEY_PIN_ZEIT, zeit);
+  dict_write_int32(out, MESSAGE_KEY_NACHT_AN, nacht_an() ? 1 : 0);
+  dict_write_int32(out, MESSAGE_KEY_NACHT_VON, nacht_von());
+  dict_write_int32(out, MESSAGE_KEY_NACHT_BIS, nacht_bis());
 }

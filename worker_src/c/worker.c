@@ -8,6 +8,7 @@
 #include "kurve.h"
 #include "botschaft.h"
 #include "schluessel.h"
+#include "nacht.h"
 
 // Der Worker: das Training laeuft hier, nicht in der App.
 //
@@ -20,6 +21,9 @@
 // WAS ER NICHT KANN: mit dem Telefon reden. AppMessage gibt es im Worker
 // nicht. Deshalb schreibt er die fertige Zusammenfassung in den Persist
 // (wartend.h) und sagt der App Bescheid; die schickt sie.
+//
+// ER LAEUFT DAUERND, seit er auch die Nacht misst (nacht.h). Ohne Training
+// tickt er nur jede Minute; das kostet so gut wie nichts.
 //
 // ER SENDET NUR, WENN JEMAND ZUSCHAUT. Die App erneuert ihr Abo alle paar
 // Sekunden; bleibt es aus, hoert der Worker auf, jede Sekunde vier
@@ -151,8 +155,31 @@ static void prv_zonenwechsel(void) {
   if (reps_brumm_holen()) prv_brumm_vormerken(BrummPauseUm);
 }
 
+static void prv_tick(struct tm *zeit, TimeUnits einheiten);
+
+// Im Training jede Sekunde, sonst jede Minute.
+static bool s_sekundentakt;
+static void prv_takt(bool sekunde) {
+  if (sekunde == s_sekundentakt) return;
+  s_sekundentakt = sekunde;
+  tick_timer_service_unsubscribe();
+  tick_timer_service_subscribe(sekunde ? SECOND_UNIT : MINUTE_UNIT, prv_tick);
+}
+
+static void prv_laeuft(bool ja) {
+  // Fuer die App: laeuft ein Training? Der Worker selbst laeuft ja immer.
+  persist_write_bool(PERSIST_LAEUFT, ja);
+  prv_takt(ja);
+}
+
 static void prv_tick(struct tm *zeit, TimeUnits einheiten) {
-  if (training_zustand() == LaufAus) return;
+  if (training_zustand() == LaufAus) {
+    // DIE NACHT - nur ohne Training, und nur zur vollen Minute. Ist sie eben
+    // fertig geworden, kommt die App nach vorn und schickt sie ans Telefon;
+    // der Worker kann es nicht (siehe oben).
+    if (zeit->tm_sec == 0 && nacht_minute(time(NULL))) worker_launch_app();
+    return;
+  }
   training_tick();
   if (training_zustand() == LaufLaeuft) {
     prv_log_puls();
@@ -172,8 +199,11 @@ static void prv_starten_nach_bestellung(void) {
   persist_delete(PERSIST_START_ART);
   persist_delete(PERSIST_START_BEGINN);
   s_letzte_zone = -1;
+  // Ein Training schlaegt die Nacht: ein laufendes HRV-Fenster endet hier.
+  nacht_unterbrechen();
   prv_akku_pruefen();
   training_starte_ab(art, beginn);
+  prv_laeuft(true);
   kurve_start();
   prv_log_start();
   APP_LOG(APP_LOG_LEVEL_INFO, "Training gestartet: Art %d", (int)art);
@@ -182,6 +212,7 @@ static void prv_starten_nach_bestellung(void) {
 static void prv_speichern(void) {
   prv_log_stop();
   const Trainingsstand t = training_stoppe();
+  prv_laeuft(false);
   AppWorkerMessage leer = { 0, 0, 0 };
   // EIN TRAINING UNTER EINER MINUTE IST KEINES - es geht nicht ans Telefon.
   if (t.dauer_s < 60) {
@@ -225,6 +256,7 @@ static void prv_befehl(uint16_t typ, AppWorkerMessage *daten) {
     case BefehlVerwerfen:
       prv_log_stop();
       training_verwerfen();
+      prv_laeuft(false);
       app_worker_send_message(BotVerworfen, &leer);
       break;
     default:
@@ -235,12 +267,17 @@ static void prv_befehl(uint16_t typ, AppWorkerMessage *daten) {
 static void prv_init(void) {
   training_init();
   app_worker_message_subscribe(prv_befehl);
+  // Ohne Bestellung laeuft kein Training - auch wenn der Persist nach einem
+  // Absturz noch etwas anderes behauptet.
+  persist_write_bool(PERSIST_LAEUFT, false);
+  s_sekundentakt = false;
+  tick_timer_service_subscribe(MINUTE_UNIT, prv_tick);
   prv_starten_nach_bestellung();
-  tick_timer_service_subscribe(SECOND_UNIT, prv_tick);
 }
 
 static void prv_ende(void) {
   prv_log_stop();
+  nacht_unterbrechen();
   tick_timer_service_unsubscribe();
   app_worker_message_unsubscribe();
   // Wird der Worker beendet, waehrend ein Training laeuft, bleibt sonst die

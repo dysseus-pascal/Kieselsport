@@ -47,6 +47,11 @@ var TEXT = [
     arten: ['Running', 'Road/Gravel', 'Hiking', 'Strength', 'MTB', 'Yoga', 'Swimming'],
     zeit: 'Time',
     speichern: 'Save',
+    nacht: 'Sleep',
+    nachtText: 'Kieselsport measures your night in the background: every minute movement and heart rate, every 30 minutes a 5-minute HRV reading. In the morning it goes to the phone; Kiesel-Helper works out sleep, deep sleep, REM and resting heart rate from it.',
+    nachtAn: 'Measure sleep',
+    nachtVon: 'From',
+    nachtBis: 'Until',
   },
   {
     intro: 'Die Pulszonen rechnen sich aus deinem Maximalpuls. Kennst du ihn aus ' +
@@ -82,6 +87,11 @@ var TEXT = [
     arten: ['Laufen', 'Strasse/Gravel', 'Wandern', 'Kraft', 'MTB', 'Yoga', 'Schwimmen'],
     zeit: 'Uhrzeit',
     speichern: 'Speichern',
+    nacht: 'Schlaf',
+    nachtText: 'Kieselsport misst die Nacht im Hintergrund: jede Minute Bewegung und Puls, alle 30 Minuten fünf Minuten HRV. Am Morgen geht alles ans Telefon; Kiesel-Helper rechnet daraus Schlaf, Tiefschlaf, REM und Ruhepuls.',
+    nachtAn: 'Schlaf messen',
+    nachtVon: 'Von',
+    nachtBis: 'Bis',
   },
   {
     intro: 'Les zones cardiaques se calculent à partir de ta fréquence ' +
@@ -121,6 +131,11 @@ var TEXT = [
     arten: ['Course', 'Route/Gravel', 'Randonnée', 'Muscu', 'VTT', 'Yoga', 'Natation'],
     zeit: 'Heure',
     speichern: 'Enregistrer',
+    nacht: 'Sommeil',
+    nachtText: 'Kieselsport mesure la nuit en arrière-plan : chaque minute le mouvement et le pouls, toutes les 30 minutes 5 minutes de VFC. Le matin, tout part vers le téléphone ; Kiesel-Helper en déduit sommeil, sommeil profond, paradoxal et pouls au repos.',
+    nachtAn: 'Mesurer le sommeil',
+    nachtVon: 'De',
+    nachtBis: 'À',
   },
   {
     intro: 'Le zone cardiache si calcolano dalla tua frequenza cardiaca ' +
@@ -158,6 +173,11 @@ var TEXT = [
     arten: ['Corsa', 'Strada/Gravel', 'Escursione', 'Pesi', 'MTB', 'Yoga', 'Nuoto'],
     zeit: 'Ora',
     speichern: 'Salva',
+    nacht: 'Sonno',
+    nachtText: 'Kieselsport misura la notte in background: ogni minuto movimento e battito, ogni 30 minuti 5 minuti di HRV. Al mattino tutto va al telefono; Kiesel-Helper ne ricava sonno, sonno profondo, REM e battito a riposo.',
+    nachtAn: 'Misura il sonno',
+    nachtVon: 'Dalle',
+    nachtBis: 'Alle',
   },
   {
     intro: 'Las zonas de pulso se calculan a partir de tu pulso máximo. Si lo ' +
@@ -193,6 +213,11 @@ var TEXT = [
     arten: ['Correr', 'Ruta/Gravel', 'Senderismo', 'Fuerza', 'MTB', 'Yoga', 'Natación'],
     zeit: 'Hora',
     speichern: 'Guardar',
+    nacht: 'Sueño',
+    nachtText: 'Kieselsport mide la noche en segundo plano: cada minuto movimiento y pulso, cada 30 minutos 5 minutos de VFC. Por la mañana todo va al teléfono; Kiesel-Helper calcula sueño, sueño profundo, REM y pulso en reposo.',
+    nachtAn: 'Medir el sueño',
+    nachtVon: 'Desde',
+    nachtBis: 'Hasta',
   },
 ];
 
@@ -290,6 +315,30 @@ module.exports = function (lang) {
           messageKey: 'PIN_ZEIT',
           defaultValue: '18:00',
           label: t.zeit,
+          attributes: { type: 'time' },
+        },
+      ],
+    },
+    {
+      // DIE NACHT: Kieselsport hat den Hintergrund-Worker, also misst er
+      // auch den Schlaf - das war vorher Herzintervall.
+      type: 'section',
+      items: [
+        { type: 'heading', defaultValue: t.nacht },
+        { type: 'text', defaultValue: t.nachtText },
+        { type: 'toggle', messageKey: 'NACHT_AN', defaultValue: true, label: t.nachtAn },
+        {
+          type: 'input',
+          messageKey: 'NACHT_VON',
+          defaultValue: '22:00',
+          label: t.nachtVon,
+          attributes: { type: 'time' },
+        },
+        {
+          type: 'input',
+          messageKey: 'NACHT_BIS',
+          defaultValue: '08:00',
+          label: t.nachtBis,
           attributes: { type: 'time' },
         },
       ],

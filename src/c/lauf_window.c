@@ -697,12 +697,12 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
       s.puls = d->data2 & 0x7FFF;
       s.frisch = (d->data2 & 0x8000) != 0;
       // EIN WORKER OHNE TRAINING: die App kam zurueck, aber es laeuft
-      // nichts mehr. Dann gehoert er beendet und der Schirm zu.
+      // nichts mehr. Dann gehoert der Schirm zu. Der Worker bleibt - er
+      // misst auch die Nacht (nacht.h).
       // Nicht in den ersten Sekunden nach dem Start: da kann der Worker
       // die Bestellung noch nicht gelesen haben.
       if (s.zustand == LaufAus && !s_bereit && !s_speichert && !s_gespeichert &&
           time(NULL) - s_gestartet > 3) {
-        app_worker_kill();
         if (!s_zu) s_zu = app_timer_register(10, prv_zu, NULL);
         return;
       }
@@ -745,7 +745,6 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
       // beim Telefon angekommen, wird sie geloescht. Eine alte Kurve eines
       // frueheren Trainings zaehlt nicht.
       s_zonen_da = kurve_beginn() == s.beginn && kurve_zeiten(s_zonen);
-      app_worker_kill();
       telefon_nachsenden();
       // NICHT NACH ZWEI SEKUNDEN ZUGEHEN. Der erste Entwurf tat das - und
       // war die Verbindung in diesen zwei Sekunden besetzt, ging die App zu,
@@ -756,7 +755,6 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
       if (!s_zu) s_zu = app_timer_register(500, prv_zu, NULL);
       break;
     case BotVerworfen:
-      app_worker_kill();
       telefon_melde_zustand(ZustandStop, (uint8_t)s_art, s.beginn);
       s_speichert = false;
       if (!s_zu) s_zu = app_timer_register(10, prv_zu, NULL);

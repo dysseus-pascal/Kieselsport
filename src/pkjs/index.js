@@ -158,6 +158,21 @@ function ganz(v, vorgabe) {
   return isNaN(n) ? vorgabe : n;
 }
 
+// Die Nacht: auf der Uhr Minuten seit Mitternacht, auf der Konfigseite
+// "HH:MM". Umrechnen in beide Richtungen.
+function hhmm(minuten, vorgabe) {
+  var m = parseInt(minuten, 10);
+  if (isNaN(m) || m < 0 || m >= 1440) return vorgabe;
+  return pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+}
+
+function minutenAus(text, vorgabe) {
+  var teile = String(text || '').split(':');
+  if (teile.length !== 2) return vorgabe;
+  var m = parseInt(teile[0], 10) * 60 + parseInt(teile[1], 10);
+  return isNaN(m) ? vorgabe : m;
+}
+
 function schickeEinstellungen() {
   var e = gespeichert();
   var nachricht = {
@@ -167,6 +182,9 @@ function schickeEinstellungen() {
     BECKEN: ganz(e.BECKEN, 25),
     PIN_ART: ganz(e.PIN_ART, 0),
     PIN_ZEIT: String(e.PIN_ZEIT || '18:00'),
+    NACHT_AN: e.NACHT_AN === false ? 0 : 1,
+    NACHT_VON: minutenAus(e.NACHT_VON, 22 * 60),
+    NACHT_BIS: minutenAus(e.NACHT_BIS, 8 * 60),
   };
   Pebble.sendAppMessage(nachricht, function () {
     console.log('einstellungen: an die Uhr');
@@ -185,6 +203,9 @@ function uebernehmeVonUhr(p) {
   if (p.EMPFIND !== undefined) e.EMPFIND = String(p.EMPFIND);
   if (p.PIN_ART !== undefined) e.PIN_ART = String(p.PIN_ART);
   if (p.PIN_ZEIT !== undefined) e.PIN_ZEIT = String(p.PIN_ZEIT);
+  if (p.NACHT_AN !== undefined) e.NACHT_AN = ganz(p.NACHT_AN, 1) !== 0;
+  if (p.NACHT_VON !== undefined) e.NACHT_VON = hhmm(p.NACHT_VON, '22:00');
+  if (p.NACHT_BIS !== undefined) e.NACHT_BIS = hhmm(p.NACHT_BIS, '08:00');
   localStorage.setItem('clay-settings', JSON.stringify(e));
   console.log('einstellungen: Stand der Uhr uebernommen');
   if (String(e.PIN_ART) + '|' + String(e.PIN_ZEIT) !== pinVorher) setzePins();
@@ -216,5 +237,9 @@ Pebble.addEventListener('appmessage', function (e) {
     return;
   }
   // Nur fürs Logbuch: was hinausgeht, ist an anderer Stelle schon versorgt.
+  // Die Nacht und die Kurve kommen in Stuecken zu hunderten Bytes - dafuer
+  // genuegt eine Zeile.
+  if (p.NACHT_MINUTEN !== undefined) { console.log('Nacht: ab ' + p.NACHT_AB + ' von ' + p.NACHT_ANZAHL); return; }
+  if (p.KURVE !== undefined) { console.log('Kurve: ab ' + p.KURVE_AB); return; }
   console.log('Training: ' + JSON.stringify(p));
 });

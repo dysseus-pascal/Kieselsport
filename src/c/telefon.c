@@ -2,6 +2,7 @@
 #include "einstellungen.h"
 #include "wartend.h"
 #include "kurve.h"
+#include "nacht.h"
 
 // Der Postausgang traegt auch die Abschnittsliste - bis zu zwanzig Saetze
 // oder Bahnen als Text. 512 reicht dafuer mit Luft.
@@ -15,9 +16,24 @@ static AppTimer *s_nachfassen;
 static Trainingsstand s_wartet;
 static char s_liste[KS_LISTE_MAX];
 static bool s_hat_wartende;
-// Ob die letzte Sendung die Zusammenfassung war - nur deren Bestaetigung
-// darf die Wartende loeschen, nicht die einer Zustandsmeldung.
-static bool s_letzte_war_zusammenfassung;
+// WAS ZULETZT HINAUSGING. Der Postausgang fasst genau eine Nachricht, und
+// Bestaetigung wie Ablehnung sagen nicht, welche es war - nur die
+// Bestaetigung der Zusammenfassung darf die Wartende loeschen, nur die eines
+// Kurvenstuecks den Zeiger der Kurve vorruecken. Frueher standen hier drei
+// Schalter; mit Nacht und Einzelmessung waeren es fuenf geworden.
+typedef enum {
+  SendungNichts = 0,
+  SendungZusammenfassung,
+  SendungZustand,
+  SendungKurve,
+  SendungEinst,
+  SendungNacht,
+  SendungHrv,
+} Sendung;
+static Sendung s_letzte;
+
+static void prv_nacht_weiter(void);
+static void prv_nacht_bestaetigt(void);
 
 // Die offene Zustandsmeldung, bis das Telefon sie hat. Ein paar Anlaeufe,
 // nicht endlos: die Zusammenfassung am Ende sagt ohnehin alles noch einmal.
@@ -40,16 +56,14 @@ static void prv_zustand_senden(void *data);
 // den Zeiger im Persist vor - geht die App dazwischen zu, geht es beim
 // naechsten Oeffnen dort weiter.
 #define KURVE_JE_NACHRICHT 300
-static bool s_letzte_war_kurve;
 static uint16_t s_kurve_unterwegs;
 static AppTimer *s_kurve_timer;
 
-// Die letzte Nachricht war die Einstellungsmeldung (siehe unten).
-static bool s_letzte_war_einst;
 
 static void prv_kurve_senden(void *data) {
   s_kurve_timer = NULL;
-  if (s_hat_wartende || !kurve_wartet()) return;
+  if (s_hat_wartende) return;
+  if (!kurve_wartet()) { prv_nacht_weiter(); return; }
   DictionaryIterator *out;
   if (app_message_outbox_begin(&out) != APP_MSG_OK) {
     s_kurve_timer = app_timer_register(700, prv_kurve_senden, NULL);
@@ -64,9 +78,7 @@ static void prv_kurve_senden(void *data) {
   dict_write_int32(out, MESSAGE_KEY_KURVE_AB, (int32_t)ab);
   dict_write_data(out, MESSAGE_KEY_KURVE, stueck, n);
   s_kurve_unterwegs = n;
-  s_letzte_war_zusammenfassung = false;
-  s_letzte_war_kurve = true;
-  s_letzte_war_einst = false;
+  s_letzte = SendungKurve;
   app_message_outbox_send();
 }
 
@@ -92,9 +104,7 @@ static void prv_einst_senden(void *data) {
     return;
   }
   einstellungen_melden(out);
-  s_letzte_war_zusammenfassung = false;
-  s_letzte_war_kurve = false;
-  s_letzte_war_einst = true;
+  s_letzte = SendungEinst;
   app_message_outbox_send();
 }
 
@@ -113,6 +123,15 @@ static void prv_nachfassen(void *data) {
 /** Clay schickt Zahlen mal als Zahl, mal als Zeichenkette - beides nehmen. */
 static int32_t prv_zahl(Tuple *t) {
   return t->type == TUPLE_CSTRING ? atoi(t->value->cstring) : t->value->int32;
+}
+
+/** Minuten seit Mitternacht - aus einer Zahl oder aus "HH:MM". */
+static int32_t prv_minuten(Tuple *t) {
+  if (t->type != TUPLE_CSTRING) return t->value->int32;
+  const char *z = t->value->cstring;
+  const char *doppel = strchr(z, ':');
+  if (!doppel) return -1;
+  return atoi(z) * 60 + atoi(doppel + 1);
 }
 
 static void prv_inbox(DictionaryIterator *iter, void *context) {
@@ -134,54 +153,99 @@ static void prv_inbox(DictionaryIterator *iter, void *context) {
   Tuple *pin_zeit = dict_find(iter, MESSAGE_KEY_PIN_ZEIT);
   if (pin_zeit && pin_zeit->type == TUPLE_CSTRING) einstellungen_pin_zeit(pin_zeit->value->cstring);
 
+  Tuple *nacht_an = dict_find(iter, MESSAGE_KEY_NACHT_AN);
+  if (nacht_an) einstellungen_nacht_an(prv_zahl(nacht_an) != 0);
+
+  // Beginn und Ende: von Kiesel-Helper als Minuten, von der Konfigseite als
+  // "HH:MM" - beides nehmen.
+  Tuple *nacht_von = dict_find(iter, MESSAGE_KEY_NACHT_VON);
+  if (nacht_von) einstellungen_nacht_von(prv_minuten(nacht_von));
+  Tuple *nacht_bis = dict_find(iter, MESSAGE_KEY_NACHT_BIS);
+  if (nacht_bis) einstellungen_nacht_bis(prv_minuten(nacht_bis));
+
   // Der neue Stand an beide Seiten - Konfigseite und Kiesel-Helper.
-  if (max || becken || ziel || empf || pin_art || pin_zeit) prv_einst_vormerken(300);
+  if (max || becken || ziel || empf || pin_art || pin_zeit || nacht_an || nacht_von || nacht_bis) {
+    prv_einst_vormerken(300);
+  }
 }
+
+static void prv_nacht_senden(void *data);
+static void prv_hrv_senden(void *data);
+static AppTimer *s_nacht_timer;
+static AppTimer *s_hrv_timer;
 
 static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void *context) {
   APP_LOG(APP_LOG_LEVEL_WARNING, "Nachricht abgelehnt: %d", (int)grund);
-  if (s_letzte_war_einst) {
-    s_letzte_war_einst = false;
-    if (s_einst_offen && !s_einst_timer) s_einst_timer = app_timer_register(2000, prv_einst_senden, NULL);
-    return;
+  const Sendung war = s_letzte;
+  s_letzte = SendungNichts;
+  switch (war) {
+    case SendungEinst:
+      if (s_einst_offen && !s_einst_timer) s_einst_timer = app_timer_register(2000, prv_einst_senden, NULL);
+      return;
+    case SendungKurve:
+      if (!s_kurve_timer) s_kurve_timer = app_timer_register(2000, prv_kurve_senden, NULL);
+      break;
+    case SendungZustand:
+      if (s_zustand_offen && !s_zustand_timer) {
+        s_zustand_timer = app_timer_register(ZUSTAND_ABSTAND_MS, prv_zustand_senden, NULL);
+      }
+      break;
+    case SendungNacht:
+      // Nicht endlos draengeln: ist das Telefon weg, geht die Nacht beim
+      // naechsten Oeffnen der App weiter, ab dem letzten bestaetigten Stueck.
+      if (!s_nacht_timer) s_nacht_timer = app_timer_register(3000, prv_nacht_senden, NULL);
+      break;
+    case SendungHrv:
+      if (!s_hrv_timer) s_hrv_timer = app_timer_register(2000, prv_hrv_senden, NULL);
+      break;
+    default:
+      break;
   }
   if (s_hat_wartende && !s_nachfassen) {
     s_nachfassen = app_timer_register(2000, prv_nachfassen, NULL);
   }
-  if (!s_letzte_war_zusammenfassung && s_zustand_offen && !s_zustand_timer) {
-    s_zustand_timer = app_timer_register(ZUSTAND_ABSTAND_MS, prv_zustand_senden, NULL);
-  }
-  if (s_letzte_war_kurve && !s_kurve_timer) {
-    s_letzte_war_kurve = false;
-    s_kurve_timer = app_timer_register(2000, prv_kurve_senden, NULL);
-  }
 }
 
+static void prv_hrv_bestaetigt(void);
+
 static void prv_angekommen(DictionaryIterator *iter, void *context) {
-  if (s_letzte_war_einst) {
-    s_letzte_war_einst = false;
-    s_einst_offen = false;
-    return;
-  }
-  if (s_letzte_war_kurve) {
-    s_letzte_war_kurve = false;
-    kurve_bestaetigt(s_kurve_unterwegs);
-    APP_LOG(APP_LOG_LEVEL_INFO, "Kurve: %u Werte bestaetigt", (unsigned)s_kurve_unterwegs);
-    if (kurve_wartet() && !s_kurve_timer) {
-      s_kurve_timer = app_timer_register(150, prv_kurve_senden, NULL);
-    }
-    return;
-  }
-  if (!s_letzte_war_zusammenfassung) {
-    s_zustand_offen = false;
-    return;
+  const Sendung war = s_letzte;
+  s_letzte = SendungNichts;
+  switch (war) {
+    case SendungEinst:
+      s_einst_offen = false;
+      return;
+    case SendungKurve:
+      kurve_bestaetigt(s_kurve_unterwegs);
+      APP_LOG(APP_LOG_LEVEL_INFO, "Kurve: %u Werte bestaetigt", (unsigned)s_kurve_unterwegs);
+      if (kurve_wartet()) {
+        if (!s_kurve_timer) s_kurve_timer = app_timer_register(150, prv_kurve_senden, NULL);
+      } else {
+        prv_nacht_weiter();
+      }
+      return;
+    case SendungZustand:
+      s_zustand_offen = false;
+      return;
+    case SendungNacht:
+      prv_nacht_bestaetigt();
+      return;
+    case SendungHrv:
+      prv_hrv_bestaetigt();
+      return;
+    case SendungZusammenfassung:
+      break;
+    default:
+      return;
   }
   s_hat_wartende = false;
   wartend_vergessen();
   APP_LOG(APP_LOG_LEVEL_INFO, "Zusammenfassung bestaetigt");
-  // Jetzt die Kurve hinterher.
-  if (kurve_wartet() && !s_kurve_timer) {
-    s_kurve_timer = app_timer_register(150, prv_kurve_senden, NULL);
+  // Jetzt die Kurve hinterher - oder, ohne Kurve, die Nacht.
+  if (kurve_wartet()) {
+    if (!s_kurve_timer) s_kurve_timer = app_timer_register(150, prv_kurve_senden, NULL);
+  } else {
+    prv_nacht_weiter();
   }
 }
 
@@ -216,8 +280,7 @@ static void prv_sende_jetzt(void) {
   // straeubte sich mit dieser um den Postausgang - der fasst genau EINE
   // Nachricht, und die zweite fiele mit BUSY aus.
   dict_write_int32(out, MESSAGE_KEY_ZUSTAND, (int32_t)ZustandStop);
-  s_letzte_war_zusammenfassung = true;
-  s_letzte_war_einst = false;
+  s_letzte = SendungZusammenfassung;
   app_message_outbox_send();
 }
 
@@ -261,8 +324,7 @@ static void prv_zustand_senden(void *data) {
   // diesem Zeitpunkt ab; erfuehre es ihn erst mit der Zusammenfassung,
   // haette es die Punkte unter einem anderen Namen gesammelt.
   dict_write_int32(out, MESSAGE_KEY_BEGINN, (int32_t)s_zustand_beginn);
-  s_letzte_war_zusammenfassung = false;
-  s_letzte_war_einst = false;
+  s_letzte = SendungZustand;
   app_message_outbox_send();
 }
 
@@ -277,6 +339,102 @@ void telefon_melde_zustand(Trainingsmeldung was, uint8_t art, uint32_t beginn) {
   prv_zustand_senden(NULL);
 }
 
+// --- Die Nacht, stueckweise ---
+//
+// NACH ALLEM ANDEREN: Zusammenfassung und Kurve eines Trainings gehen vor -
+// die Nacht wartet ohnehin schon Stunden. Je Nachricht 150 Minuten (300
+// Byte); dazu im ersten Stueck die HRV-Fenster. Jedes bestaetigte Stueck
+// rueckt den Zeiger im Persist vor (nacht.h), wie bei der Kurve.
+#define NACHT_JE_NACHRICHT 150
+static uint16_t s_nacht_unterwegs;
+static void (*s_nacht_fertig)(void);
+
+static void prv_nacht_senden(void *data) {
+  s_nacht_timer = NULL;
+  if (s_hat_wartende || kurve_wartet()) return;
+  if (!nacht_wartet()) {
+    if (s_nacht_fertig) s_nacht_fertig();
+    return;
+  }
+  DictionaryIterator *out;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) {
+    s_nacht_timer = app_timer_register(700, prv_nacht_senden, NULL);
+    return;
+  }
+  static uint8_t minuten[NACHT_JE_NACHRICHT * 2];
+  const uint16_t ab = nacht_ab();
+  const uint16_t anzahl = nacht_anzahl();
+  uint16_t n = (uint16_t)(anzahl - ab);
+  if (n > NACHT_JE_NACHRICHT) n = NACHT_JE_NACHRICHT;
+  nacht_minuten(minuten, ab, n);
+  dict_write_int32(out, MESSAGE_KEY_NACHT_BEGINN, (int32_t)nacht_beginn());
+  dict_write_int32(out, MESSAGE_KEY_NACHT_ANZAHL, (int32_t)anzahl);
+  dict_write_int32(out, MESSAGE_KEY_NACHT_AB, (int32_t)ab);
+  dict_write_data(out, MESSAGE_KEY_NACHT_MINUTEN, minuten, (uint16_t)(n * 2));
+  if (ab == 0) {
+    static uint8_t fenster[KS_NACHT_FENSTER_MAX * sizeof(NachtFenster)];
+    const uint16_t f = nacht_fenster(fenster, sizeof(fenster));
+    if (f > 0) dict_write_data(out, MESSAGE_KEY_NACHT_HRV, fenster, f);
+  }
+  s_nacht_unterwegs = n;
+  s_letzte = SendungNacht;
+  app_message_outbox_send();
+}
+
+// Das naechste Stueck anstossen - nach Training und Kurve, oder nach einem
+// bestaetigten Stueck.
+static void prv_nacht_weiter(void) {
+  if (!s_nacht_timer) s_nacht_timer = app_timer_register(150, prv_nacht_senden, NULL);
+}
+
+static void prv_nacht_bestaetigt(void) {
+  nacht_bestaetigt(s_nacht_unterwegs);
+  APP_LOG(APP_LOG_LEVEL_INFO, "Nacht: %u Minuten bestaetigt", (unsigned)s_nacht_unterwegs);
+  s_nacht_unterwegs = 0;
+  prv_nacht_weiter();
+}
+
+bool telefon_nacht_wartet(void) { return nacht_wartet(); }
+
+void telefon_bei_nacht_fertig(void (*fertig)(void)) { s_nacht_fertig = fertig; }
+
+// --- Eine einzelne HRV-Messung ---
+static bool s_hrv_offen;
+static uint16_t s_hrv_wert;
+static time_t s_hrv_zeit;
+static uint8_t s_hrv_versuche;
+
+static void prv_hrv_senden(void *data) {
+  s_hrv_timer = NULL;
+  if (!s_hrv_offen) return;
+  if (s_hrv_versuche >= 10) { s_hrv_offen = false; return; }
+  s_hrv_versuche++;
+  DictionaryIterator *out;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) {
+    s_hrv_timer = app_timer_register(1500, prv_hrv_senden, NULL);
+    return;
+  }
+  dict_write_int32(out, MESSAGE_KEY_HRV, (int32_t)s_hrv_wert);
+  dict_write_int32(out, MESSAGE_KEY_HRV_ZEIT, (int32_t)s_hrv_zeit);
+  s_letzte = SendungHrv;
+  app_message_outbox_send();
+}
+
+static void prv_hrv_bestaetigt(void) {
+  s_hrv_offen = false;
+}
+
+void telefon_hrv(uint16_t rmssd, time_t wann) {
+  s_hrv_offen = true;
+  s_hrv_wert = rmssd;
+  s_hrv_zeit = wann;
+  s_hrv_versuche = 0;
+  if (s_hrv_timer) { app_timer_cancel(s_hrv_timer); s_hrv_timer = NULL; }
+  prv_hrv_senden(NULL);
+}
+
+bool telefon_hrv_offen(void) { return s_hrv_offen; }
+
 void telefon_init(void) {
   app_message_register_inbox_received(prv_inbox);
   app_message_register_outbox_failed(prv_abgelehnt);
@@ -289,6 +447,11 @@ void telefon_init(void) {
   telefon_nachsenden();
   if (!s_hat_wartende && kurve_wartet()) {
     s_kurve_timer = app_timer_register(800, prv_kurve_senden, NULL);
+  }
+  // Eine wartende Nacht - hinter der Zusammenfassung und der Kurve, die
+  // stossen sie an, wenn sie fertig sind.
+  if (!s_hat_wartende && !kurve_wartet() && nacht_wartet()) {
+    s_nacht_timer = app_timer_register(1200, prv_nacht_senden, NULL);
   }
   // Die Einstellungen der Uhr, damit Konfigseite und Kiesel-Helper sie
   // kennen - nach allem, was dringender ist.

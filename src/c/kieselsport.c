@@ -6,6 +6,10 @@
 #include "botschaft.h"
 #include "thema.h"
 #include "symbole.h"
+#include "hrv_window.h"
+#include "morgen_window.h"
+#include "schluessel.h"
+#include "strings.h"
 #include "strings.h"
 
 // Kieselsport - Training auf der Uhr, Auswertung im eigenen Haus.
@@ -26,8 +30,11 @@ static Window *s_menue;
 static MenuLayer *s_liste;
 static Layer *s_leiste;
 
+// Die Arten, und darunter die HRV-Messung - was Herzintervall war.
+#define KS_ZEILE_HRV ArtAnzahl
+
 static uint16_t prv_zeilen(MenuLayer *liste, uint16_t abschnitt, void *ctx) {
-  return ArtAnzahl;
+  return ArtAnzahl + 1;
 }
 
 static int16_t prv_zeilenhoehe(MenuLayer *liste, MenuIndex *index, void *ctx) {
@@ -45,20 +52,22 @@ static void prv_zeichne_zeile(GContext *ctx, const Layer *zelle,
   // verschieben, also kam MTB hinten dazu. Das Woertchen "Bike" darunter
   // sagt trotzdem, was beide sind.
   const Sportart art = (Sportart)index->row;
+  const bool hrv = index->row == KS_ZEILE_HRV;
   const GRect b = layer_get_bounds(zelle);
   const bool hell = menu_cell_layer_is_highlighted(zelle);
   const GColor farbe = hell ? KS_FARBE_AUF_LEISTE : KS_FARBE_TEXT;
   const int16_t g = KS_BREIT ? 32 : 26;
   const int16_t links = PBL_IF_ROUND_ELSE(30, 6);
-  symbol_sport(ctx, art, GPoint(links + g / 2, b.size.h / 2), g, farbe);
+  if (hrv) symbol_herz(ctx, GPoint(links + g / 2, b.size.h / 2), g, farbe);
+  else symbol_sport(ctx, art, GPoint(links + g / 2, b.size.h / 2), g, farbe);
 
   const int16_t tx = links + g + 8;
-  const char *gruppe = art_gruppe(art);
+  const char *gruppe = hrv ? S(STR_HRV_UNTER) : art_gruppe(art);
   graphics_context_set_text_color(ctx, farbe);
   const GFont name = fonts_get_system_font(KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
   const int16_t nh = KS_BREIT ? 28 : 22;
   const int16_t ny = gruppe ? b.size.h / 2 - nh + 4 : (b.size.h - nh) / 2 - 3;
-  graphics_draw_text(ctx, art_name(art), name, GRect(tx, ny, b.size.w - tx - 2, nh),
+  graphics_draw_text(ctx, hrv ? "HRV" : art_name(art), name, GRect(tx, ny, b.size.w - tx - 2, nh),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   if (gruppe) {
     graphics_draw_text(ctx, gruppe, fonts_get_system_font(FONT_KEY_GOTHIC_14),
@@ -68,7 +77,8 @@ static void prv_zeichne_zeile(GContext *ctx, const Layer *zelle,
 }
 
 static void prv_gewaehlt(MenuLayer *liste, MenuIndex *index, void *daten) {
-  lauf_window_zeige((Sportart)index->row);
+  if (index->row == KS_ZEILE_HRV) hrv_window_zeige();
+  else lauf_window_zeige((Sportart)index->row);
 }
 
 static void prv_zeichne_leiste(Layer *layer, GContext *ctx) {
@@ -125,11 +135,20 @@ static void prv_init(void) {
   });
   window_stack_push(s_menue, true);
 
+  // DER WORKER LAEUFT IMMER - er misst auch die Nacht (nacht.h). Ist er aus,
+  // etwa nach dem Installieren, faehrt ihn jedes Oeffnen der App wieder hoch.
+  if (!app_worker_is_running()) app_worker_launch();
+
   // LAEUFT SCHON ETWAS, GLEICH HINEIN. Wer die App aus dem Startmenue
   // oeffnet, weil dort "Laufen im Hintergrund" steht, will den Lauf sehen
-  // und nicht das Menue.
-  if (app_worker_is_running()) {
+  // und nicht das Menue. Ob ein Training laeuft, sagt der Persist: der
+  // Worker allein sagt es nicht mehr.
+  const bool laeuft = persist_exists(PERSIST_LAEUFT) && persist_read_bool(PERSIST_LAEUFT);
+  if (laeuft) {
     lauf_window_zeige_laufend();
+  } else if (launch_reason() == APP_LAUNCH_WORKER && telefon_nacht_wartet()) {
+    // AM MORGEN: der Worker hat die App geholt, weil eine Nacht fertig ist.
+    morgen_window_zeige();
   } else if (launch_reason() == APP_LAUNCH_TIMELINE_ACTION) {
     // AUS DEM PIN "TRAINING": die Aktion "Jetzt starten" traegt die Art als
     // Launch-Code (Art + 1, damit 0 "nichts" bleibt). Der Schirm steht dann
@@ -145,7 +164,7 @@ static void prv_init(void) {
 #ifndef KS_DEMO_ART
 #define KS_DEMO_ART ArtLaufen
 #endif
-  if (!app_worker_is_running()) lauf_window_zeige(KS_DEMO_ART);
+  if (!laeuft) lauf_window_zeige(KS_DEMO_ART);
 #endif
 }
 
@@ -155,7 +174,7 @@ static void prv_ende(void) {
   // im Hintergrund gezaehlt wird.
   // Ob etwas laeuft, weiss der Worker besser als der Schirm - der war
   // vielleicht nie offen, wenn jemand nur ins Menue schaute.
-  glanz_setzen(app_worker_is_running() && lauf_window_laeuft(),
+  glanz_setzen(persist_exists(PERSIST_LAEUFT) && persist_read_bool(PERSIST_LAEUFT) && lauf_window_laeuft(),
                lauf_window_art(), lauf_window_beginn());
   app_worker_message_unsubscribe();
   window_destroy(s_menue);

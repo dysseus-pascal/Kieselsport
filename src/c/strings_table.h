@@ -89,6 +89,17 @@ STR(STR_TEL_AUFGEGEBEN, 0,  "Phone unreachable,\nsent on next launch", "Telefon 
 STR(STR_TEL_WARTET,     0,  "sending to phone …", "geht ans Telefon …", "envoi au téléphone …", "invio al telefono …", "enviando al teléfono …")
 STR(STR_TEL_ANGEKOMMEN, 0,  "received by phone", "beim Telefon angekommen", "reçu par le téléphone", "ricevuto dal telefono", "recibido en el teléfono")
 
+// ---- HRV auf Knopfdruck (Menuepunkt "HRV", Puffer zahl[16]) --------------
+STR(STR_HRV_UNTER,      0,  "1 min measurement", "1 Minute messen", "Mesure 1 min", "Misura 1 min", "Medir 1 min")
+STR(STR_HRV_BEREIT,     0,  "Sit still.\nSelect starts.", "Ruhig sitzen.\nSelect startet.", "Restez calme.\nSelect démarre.", "Stai fermo.\nSelect avvia.", "Quieto.\nSelect inicia.")
+STR(STR_HRV_SCHLAEGE,   16, "%u beats",     "%u Schläge",     "%u battements", "%u battiti",   "%u latidos")
+STR(STR_HRV_STILL,      0,  "Keep still",   "Nicht bewegen",  "Ne bougez pas", "Non muoverti", "No te muevas")
+STR(STR_HRV_ZUWENIG,    0,  "Too few beats. Select again.", "Zu wenig Schläge. Select nochmal.", "Trop peu de battements. Select encore.", "Troppo pochi battiti. Select ancora.", "Pocos latidos. Select otra vez.")
+
+// ---- Die Nacht am Morgen --------------------------------------------------
+STR(STR_NACHT_SENDEN,   0,  "Sending sleep to phone …", "Schlaf geht ans Telefon …", "Envoi du sommeil …", "Invio del sonno …", "Enviando el sueño …")
+STR(STR_NACHT_FERTIG,   0,  "Sleep sent",   "Schlaf übertragen", "Sommeil envoyé", "Sonno inviato", "Sueño enviado")
+
 // ---- App-Glance (Untertitel im Startmenue) --------------------------------
 // STR_GLANZ_SEIT ist nur der Kopf; die Dauer haengt glanz.c als Vorlage des
 // Systems an ("25 min"). Deshalb endet er auf ein Leerzeichen.

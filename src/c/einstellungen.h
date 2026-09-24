@@ -14,6 +14,9 @@ void einstellungen_pausenziel(int32_t sekunden);
 void einstellungen_empfindlichkeit(int32_t stufe);
 void einstellungen_pin_art(int32_t art);
 void einstellungen_pin_zeit(const char *hhmm);
+void einstellungen_nacht_an(bool an);
+void einstellungen_nacht_von(int32_t minuten);   //< seit Mitternacht
+void einstellungen_nacht_bis(int32_t minuten);
 
 // ALLE EINSTELLUNGEN IN EINE NACHRICHT - fuer das Telefon.
 //

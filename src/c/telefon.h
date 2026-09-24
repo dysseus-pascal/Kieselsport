@@ -40,3 +40,14 @@ typedef enum {
 } Trainingsmeldung;
 
 void telefon_melde_zustand(Trainingsmeldung was, uint8_t art, uint32_t beginn);
+
+// --- Die Nacht (nacht.h) ---
+// Wartet eine Nacht auf das Telefon? Sie geht von selbst, nach Training und
+// Kurve; `fertig` wird gerufen, wenn nichts mehr wartet - die App, die der
+// Worker morgens dafuer geholt hat, geht dann wieder zu.
+bool telefon_nacht_wartet(void);
+void telefon_bei_nacht_fertig(void (*fertig)(void));
+
+// --- Eine einzelne HRV-Messung (Menuepunkt "HRV") ---
+void telefon_hrv(uint16_t rmssd, time_t wann);
+bool telefon_hrv_offen(void);

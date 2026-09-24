@@ -1,7 +1,7 @@
 {
   "name": "kieselsport",
   "author": "dysseus-pascal",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -49,7 +49,16 @@
       "PIN_ZEIT",
       "KURVE_AB",
       "KURVE_ANZAHL",
-      "KURVE"
+      "KURVE",
+      "NACHT_AN",
+      "NACHT_VON",
+      "NACHT_BIS",
+      "NACHT_BEGINN",
+      "NACHT_AB",
+      "NACHT_ANZAHL",
+      "NACHT_MINUTEN",
+      "NACHT_HRV",
+      "HRV_ZEIT"
     ],
     "resources": {
       "media": []

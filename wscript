@@ -44,7 +44,8 @@ def build(ctx):
                        ctx.path.ant_glob('src/c/kern/art.c') +
                        ctx.path.ant_glob('src/c/kern/wartend.c') +
                        ctx.path.ant_glob('src/c/kern/kurve.c') +
-                       ctx.path.ant_glob('src/c/kern/puls.c'))
+                       ctx.path.ant_glob('src/c/kern/puls.c') +
+                       ctx.path.ant_glob('src/c/kern/nacht.c'))
         ctx.pbl_build(source=app_quellen, target=app_elf, bin_type='app',
                       includes=['src/c/kern'])
 

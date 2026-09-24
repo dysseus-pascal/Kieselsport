@@ -12,6 +12,13 @@
 #define PERSIST_PIN_ART 5
 #define PERSIST_PIN_ZEIT 6
 
+// Die Nacht: an oder aus, und das Zeitfenster in Minuten seit Mitternacht.
+// Gesetzt von Konfigseite oder Kiesel-Helper (einstellungen.h), gelesen vom
+// Worker jede Minute.
+#define PERSIST_NACHT_AN 7
+#define PERSIST_NACHT_VON 8
+#define PERSIST_NACHT_BIS 9
+
 #define PERSIST_ARCHIV_ANZAHL 10
 #define PERSIST_ARCHIV_NAECHST 11
 
@@ -31,5 +38,18 @@
 #define PERSIST_KURVE_BEGINN 41
 #define PERSIST_KURVE_AB 42
 #define PERSIST_KURVE_BASIS 50
+
+// Die Nacht, die der Worker gerade misst (LAUF_*), und die fertige, die auf
+// das Telefon wartet (OFFEN_*) - siehe nacht.h.
+#define PERSIST_NACHT_LAUF_BEGINN 60
+#define PERSIST_NACHT_LAUF_HRV 61
+#define PERSIST_NACHT_OFFEN_BEGINN 63
+#define PERSIST_NACHT_OFFEN_ENDE 64
+#define PERSIST_NACHT_OFFEN_HRV 65
+#define PERSIST_NACHT_OFFEN_AB 66
+
+// Laeuft ein Training? Der Worker schreibt es beim Start und beim Ende. Seit
+// er dauerhaft laeuft (fuer die Nacht), sagt "Worker laeuft" das nicht mehr.
+#define PERSIST_LAEUFT 67
 
 #define PERSIST_ARCHIV_BASIS 100
