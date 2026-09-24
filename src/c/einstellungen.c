@@ -23,3 +23,32 @@ void einstellungen_empfindlichkeit(int32_t stufe) {
   if (stufe < 1 || stufe > 3) return;
   persist_write_int(PERSIST_EMPFIND, stufe);
 }
+
+void einstellungen_pin_art(int32_t art) {
+  if (art < 0 || art > 7) return;
+  persist_write_int(PERSIST_PIN_ART, art);
+}
+
+void einstellungen_pin_zeit(const char *hhmm) {
+  if (!hhmm) return;
+  // Nur "H:MM" oder "HH:MM" - was sonst kommt, ist keine Uhrzeit.
+  const size_t n = strlen(hhmm);
+  if (n < 4 || n > 5 || hhmm[n - 3] != ':') return;
+  persist_write_string(PERSIST_PIN_ZEIT, hhmm);
+}
+
+static int32_t prv_lies(uint32_t schluessel, int32_t vorgabe) {
+  return persist_exists(schluessel) ? persist_read_int(schluessel) : vorgabe;
+}
+
+void einstellungen_melden(DictionaryIterator *out) {
+  // Die Vorgaben sind die der Konfigseite und der Module, die sie lesen.
+  dict_write_int32(out, MESSAGE_KEY_MAXPULS, prv_lies(PERSIST_MAXPULS, 190));
+  dict_write_int32(out, MESSAGE_KEY_BECKEN, prv_lies(PERSIST_BECKEN, 25));
+  dict_write_int32(out, MESSAGE_KEY_PAUSENZIEL, prv_lies(PERSIST_PAUSENZIEL, 90));
+  dict_write_int32(out, MESSAGE_KEY_EMPFIND, prv_lies(PERSIST_EMPFIND, 2));
+  dict_write_int32(out, MESSAGE_KEY_PIN_ART, prv_lies(PERSIST_PIN_ART, 0));
+  char zeit[8] = "18:00";
+  if (persist_exists(PERSIST_PIN_ZEIT)) persist_read_string(PERSIST_PIN_ZEIT, zeit, sizeof(zeit));
+  dict_write_cstring(out, MESSAGE_KEY_PIN_ZEIT, zeit);
+}

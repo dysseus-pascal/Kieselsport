@@ -63,10 +63,45 @@ static void prv_kurve_senden(void *data) {
   s_kurve_unterwegs = n;
   s_letzte_war_zusammenfassung = false;
   s_letzte_war_kurve = true;
+  s_letzte_war_einst = false;
   app_message_outbox_send();
 }
 
 static void prv_sende_jetzt(void);
+
+// --- Die Einstellungen ans Telefon ---
+//
+// Beim Start und nach jeder Aenderung. Hinter allem anderen: die
+// Zusammenfassung und die Kurve gehen vor, die Meldung wartet, bis der
+// Postausgang frei ist.
+static bool s_einst_offen;
+static bool s_letzte_war_einst;
+static AppTimer *s_einst_timer;
+static uint8_t s_einst_versuche;
+
+static void prv_einst_senden(void *data) {
+  s_einst_timer = NULL;
+  if (!s_einst_offen) return;
+  if (s_einst_versuche >= 6) { s_einst_offen = false; return; }
+  s_einst_versuche++;
+  DictionaryIterator *out;
+  if (s_hat_wartende || app_message_outbox_begin(&out) != APP_MSG_OK) {
+    s_einst_timer = app_timer_register(1500, prv_einst_senden, NULL);
+    return;
+  }
+  einstellungen_melden(out);
+  s_letzte_war_zusammenfassung = false;
+  s_letzte_war_kurve = false;
+  s_letzte_war_einst = true;
+  app_message_outbox_send();
+}
+
+static void prv_einst_vormerken(uint32_t ms) {
+  s_einst_offen = true;
+  s_einst_versuche = 0;
+  if (s_einst_timer) app_timer_cancel(s_einst_timer);
+  s_einst_timer = app_timer_register(ms, prv_einst_senden, NULL);
+}
 
 static void prv_nachfassen(void *data) {
   s_nachfassen = NULL;
@@ -90,10 +125,24 @@ static void prv_inbox(DictionaryIterator *iter, void *context) {
 
   Tuple *empf = dict_find(iter, MESSAGE_KEY_EMPFIND);
   if (empf) einstellungen_empfindlichkeit(prv_zahl(empf));
+
+  Tuple *pin_art = dict_find(iter, MESSAGE_KEY_PIN_ART);
+  if (pin_art) einstellungen_pin_art(prv_zahl(pin_art));
+
+  Tuple *pin_zeit = dict_find(iter, MESSAGE_KEY_PIN_ZEIT);
+  if (pin_zeit && pin_zeit->type == TUPLE_CSTRING) einstellungen_pin_zeit(pin_zeit->value->cstring);
+
+  // Der neue Stand an beide Seiten - Konfigseite und Kiesel-Helper.
+  if (max || becken || ziel || empf || pin_art || pin_zeit) prv_einst_vormerken(300);
 }
 
 static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void *context) {
   APP_LOG(APP_LOG_LEVEL_WARNING, "Nachricht abgelehnt: %d", (int)grund);
+  if (s_letzte_war_einst) {
+    s_letzte_war_einst = false;
+    if (s_einst_offen && !s_einst_timer) s_einst_timer = app_timer_register(2000, prv_einst_senden, NULL);
+    return;
+  }
   if (s_hat_wartende && !s_nachfassen) {
     s_nachfassen = app_timer_register(2000, prv_nachfassen, NULL);
   }
@@ -107,6 +156,11 @@ static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void
 }
 
 static void prv_angekommen(DictionaryIterator *iter, void *context) {
+  if (s_letzte_war_einst) {
+    s_letzte_war_einst = false;
+    s_einst_offen = false;
+    return;
+  }
   if (s_letzte_war_kurve) {
     s_letzte_war_kurve = false;
     kurve_bestaetigt(s_kurve_unterwegs);
@@ -161,6 +215,7 @@ static void prv_sende_jetzt(void) {
   // Nachricht, und die zweite fiele mit BUSY aus.
   dict_write_int32(out, MESSAGE_KEY_ZUSTAND, (int32_t)ZustandStop);
   s_letzte_war_zusammenfassung = true;
+  s_letzte_war_einst = false;
   app_message_outbox_send();
 }
 
@@ -205,6 +260,7 @@ static void prv_zustand_senden(void *data) {
   // haette es die Punkte unter einem anderen Namen gesammelt.
   dict_write_int32(out, MESSAGE_KEY_BEGINN, (int32_t)s_zustand_beginn);
   s_letzte_war_zusammenfassung = false;
+  s_letzte_war_einst = false;
   app_message_outbox_send();
 }
 
@@ -232,4 +288,7 @@ void telefon_init(void) {
   if (!s_hat_wartende && kurve_wartet()) {
     s_kurve_timer = app_timer_register(800, prv_kurve_senden, NULL);
   }
+  // Die Einstellungen der Uhr, damit Konfigseite und Kiesel-Helper sie
+  // kennen - nach allem, was dringender ist.
+  prv_einst_vormerken(2500);
 }

@@ -95,18 +95,90 @@ function setzePins() {
   }
 }
 
+// --- Die Einstellungen: die Uhr haelt sie ---
+//
+// GEAENDERT WIRD AN ZWEI STELLEN - auf der Konfigseite hier und in
+// Kiesel-Helper. Beide schicken an die Uhr, und die Uhr meldet danach, was
+// gilt (beim Start und nach jeder Aenderung). Diese Meldung wird hier in die
+// Konfigseite uebernommen, damit sie beim naechsten Oeffnen den Stand der Uhr
+// zeigt und nicht den eigenen alten.
+//
+// AUSSER EINE AENDERUNG VON HIER KAM NIE AN (Uhr-App zu, Verbindung weg):
+// dann ist sie vorgemerkt und geht zuerst an die Uhr, statt von deren altem
+// Stand ueberschrieben zu werden.
+var VORGEMERKT = 'kieselsport_vorgemerkt';
+
+function vorgemerkt() { return localStorage.getItem(VORGEMERKT) === '1'; }
+function vormerken(ja) {
+  if (ja) localStorage.setItem(VORGEMERKT, '1'); else localStorage.removeItem(VORGEMERKT);
+}
+
+function gespeichert() {
+  try { return JSON.parse(localStorage.getItem('clay-settings') || '{}') || {}; } catch (x) { return {}; }
+}
+
+function ganz(v, vorgabe) {
+  var n = parseInt(v, 10);
+  return isNaN(n) ? vorgabe : n;
+}
+
+function schickeEinstellungen() {
+  var e = gespeichert();
+  var nachricht = {
+    MAXPULS: ganz(e.MAXPULS, 190),
+    PAUSENZIEL: ganz(e.PAUSENZIEL, 90),
+    EMPFIND: ganz(e.EMPFIND, 2),
+    BECKEN: ganz(e.BECKEN, 25),
+    PIN_ART: ganz(e.PIN_ART, 0),
+    PIN_ZEIT: String(e.PIN_ZEIT || '18:00'),
+  };
+  Pebble.sendAppMessage(nachricht, function () {
+    console.log('einstellungen: an die Uhr');
+    vormerken(false);
+  }, function () {
+    console.log('einstellungen: Uhr nicht erreicht, bleibt vorgemerkt');
+  });
+}
+
+function uebernehmeVonUhr(p) {
+  var e = gespeichert();
+  var pinVorher = String(e.PIN_ART) + '|' + String(e.PIN_ZEIT);
+  e.MAXPULS = ganz(p.MAXPULS, 190);
+  if (p.PAUSENZIEL !== undefined) e.PAUSENZIEL = ganz(p.PAUSENZIEL, 90);
+  if (p.BECKEN !== undefined) e.BECKEN = ganz(p.BECKEN, 25);
+  if (p.EMPFIND !== undefined) e.EMPFIND = String(p.EMPFIND);
+  if (p.PIN_ART !== undefined) e.PIN_ART = String(p.PIN_ART);
+  if (p.PIN_ZEIT !== undefined) e.PIN_ZEIT = String(p.PIN_ZEIT);
+  localStorage.setItem('clay-settings', JSON.stringify(e));
+  console.log('einstellungen: Stand der Uhr uebernommen');
+  if (String(e.PIN_ART) + '|' + String(e.PIN_ZEIT) !== pinVorher) setzePins();
+}
+
 Pebble.addEventListener('ready', function () {
   console.log('Kieselsport bereit');
   setzePins();
 });
 
-Pebble.addEventListener('webviewclosed', function () {
+Pebble.addEventListener('webviewclosed', function (e) {
   // Nach der Konfigseite gleich neu setzen: Art oder Zeit koennen sich
-  // geaendert haben. Clay hat die Einstellungen da schon gespeichert.
-  setTimeout(setzePins, 500);
+  // geaendert haben. Clay hat die Einstellungen da schon gespeichert und
+  // geschickt; die eigene Sendung merkt sich nur, ob sie ankam.
+  if (!e || !e.response) return;
+  vormerken(true);
+  setTimeout(function () {
+    schickeEinstellungen();
+    setzePins();
+  }, 500);
 });
 
 Pebble.addEventListener('appmessage', function (e) {
+  var p = e.payload || {};
+  if (p.MAXPULS !== undefined && p.ART === undefined) {
+    // Die Meldung der Einstellungen (eine Zusammenfassung traegt ART).
+    if (vorgemerkt()) schickeEinstellungen();
+    else uebernehmeVonUhr(p);
+    return;
+  }
   // Nur fürs Logbuch: was hinausgeht, ist an anderer Stelle schon versorgt.
-  console.log('Training beendet: ' + JSON.stringify(e.payload));
+  console.log('Training: ' + JSON.stringify(p));
 });

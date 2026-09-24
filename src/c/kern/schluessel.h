@@ -7,6 +7,10 @@
 #define PERSIST_EMPFIND 2
 #define PERSIST_PAUSENZIEL 3
 #define PERSIST_BECKEN 4
+// Der Timeline-Pin: welche Art, wann. Die Uhr haelt sie, damit Konfigseite
+// und Kiesel-Helper denselben Stand sehen (siehe einstellungen.h).
+#define PERSIST_PIN_ART 5
+#define PERSIST_PIN_ZEIT 6
 
 #define PERSIST_ARCHIV_ANZAHL 10
 #define PERSIST_ARCHIV_NAECHST 11

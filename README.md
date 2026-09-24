@@ -272,15 +272,24 @@ weicher als an Land. Die Bahnen sind davon unberührt.
 | `KCAL` | 10005 | |
 | `PULS_MITTEL` | 10006 | |
 | `PULS_MAX` | 10007 | |
-| `MAXPULS` | 10008 | **hinein**, aus der Konfigseite |
+| `MAXPULS` | 10008 | **hinein und hinaus**, aus der Konfigseite oder Kiesel-Helper |
 | `ZUSTAND` | 10009 | 0 Stop, 1 Start, 2 Pause, 3 Weiter |
-| `BECKEN` | 10010 | **hinein**, Beckenlänge in Metern |
-| `PAUSENZIEL` | 10011 | **hinein**, Sekunden bis zum Brummen |
-| `EMPFIND` | 10012 | **hinein**, 1 träge, 2 normal, 3 fein |
+| `BECKEN` | 10010 | **hinein und hinaus**, Beckenlänge in Metern |
+| `PAUSENZIEL` | 10011 | **hinein und hinaus**, Sekunden bis zum Brummen |
+| `EMPFIND` | 10012 | **hinein und hinaus**, 1 träge, 2 normal, 3 fein |
 | `SAETZE` | 10013 | Kraft |
 | `REPS` | 10014 | Kraft, alle Wiederholungen |
 | `BAHNEN` | 10015 | Schwimmen |
 | `ABSCHNITTE` | 10016 | `beginn:anzahl:dauer;…`, je Satz oder Bahn |
+| `PIN_ART` | 10018 | **hinein und hinaus**, 0 kein Pin, 1–7 Sportart |
+| `PIN_ZEIT` | 10019 | **hinein und hinaus**, Text `HH:MM` |
+
+**Einstellungen an zwei Stellen, gültig an einer.** Geändert werden sie auf der
+Konfigseite der Pebble-App oder in Kiesel-Helper; beide schicken an die Uhr.
+Die Uhr meldet beim Start und nach jeder Änderung alle sechs Werte in einer
+Nachricht (ohne `ART` – daran erkennt man sie). Die Konfigseite übernimmt
+diese Meldung, ausser eine eigene Änderung kam noch nicht an; dann geht die
+zuerst hinaus.
 
 **Die Abschnittsliste ist das, was den Tag später erklärt.** »4 Sätze« sagt
 wenig, »12/10/8/8 mit 90 Sekunden dazwischen« sagt alles — und auf dem

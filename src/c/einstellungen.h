@@ -12,3 +12,13 @@ void einstellungen_maxpuls(int32_t schlaege);
 void einstellungen_becken(int32_t meter);
 void einstellungen_pausenziel(int32_t sekunden);
 void einstellungen_empfindlichkeit(int32_t stufe);
+void einstellungen_pin_art(int32_t art);
+void einstellungen_pin_zeit(const char *hhmm);
+
+// ALLE EINSTELLUNGEN IN EINE NACHRICHT - fuer das Telefon.
+//
+// DIE UHR IST DIE EINE STELLE, AN DER SIE GELTEN. Geaendert werden sie auf
+// der Konfigseite der Pebble-App oder in Kiesel-Helper; beide schicken an die
+// Uhr, und die Uhr meldet danach, was gilt. Ohne diese Meldung zeigte jede
+// Seite ihren eigenen, womoeglich alten Stand.
+void einstellungen_melden(DictionaryIterator *out);
