@@ -36,13 +36,15 @@ def build(ctx):
         app_elf = '{}/pebble-app.elf'.format(ctx.env.BUILD_DIR)
         # DIE APP UND DER WORKER TEILEN SICH DEN KERN in src/c/kern: die
         # Messung lebt im Worker, die App braucht davon nur die Arten und
-        # die wartende Zusammenfassung. Jeder bekommt, was er braucht, und
+        # die wartende Zusammenfassung - und die Pulszonen, fuer die Zeit je
+        # Zone nach dem Speichern. Jeder bekommt, was er braucht, und
         # der Worker obendrein -DKS_WORKER, damit plattform.h ihm
         # pebble_worker.h statt pebble.h gibt.
         app_quellen = (ctx.path.ant_glob('src/c/*.c') +
                        ctx.path.ant_glob('src/c/kern/art.c') +
                        ctx.path.ant_glob('src/c/kern/wartend.c') +
-                       ctx.path.ant_glob('src/c/kern/kurve.c'))
+                       ctx.path.ant_glob('src/c/kern/kurve.c') +
+                       ctx.path.ant_glob('src/c/kern/puls.c'))
         ctx.pbl_build(source=app_quellen, target=app_elf, bin_type='app',
                       includes=['src/c/kern'])
 
