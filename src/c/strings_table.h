@@ -39,29 +39,41 @@ STR(STR_ART_SCHWIMMEN,  0,  "Swimming",     "Schwimmen",      "Natation",     "N
 // Obertitel im Menue unter Strasse/Gravel und MTB.
 STR(STR_GRUPPE_BIKE,    0,  "Bike",         "Bike",           "Vélo",         "Bici",          "Bici")
 
-// ---- Laufender Schirm: die kleine Zeile (Puffer zeile[40]) ----------------
-STR(STR_ZEILE_BEREIT,   40, "%s · ready",   "%s · bereit",    "%s · prêt",    "%s · pronto",   "%s · listo")
+// ---- Laufender Schirm: die Kopfzeile in der Pause (Puffer zeile[40]) -----
 STR(STR_ZEILE_PAUSE,    40, "%s · paused",  "%s · Pause",     "%s · pause",   "%s · pausa",    "%s · pausa")
 
-// Neben der grossen Zahl beim Krafttraining.
-STR(STR_GROSS_PAUSE,    0,  "Rest",         "Pause",          "Repos",        "Recupero",      "Descanso")
-STR(STR_GROSS_WDH,      0,  "Reps",         "Wdh.",           "Rép.",         "Rip.",          "Rep.")
-
-// ---- Laufender Schirm: der Titel (fett; Puffer text[24]) ------------------
+// ---- Startschirm und Laden ------------------------------------------------
 STR(STR_SELECT_STARTET, 0,  "Select starts", "Select startet", "Select démarre", "Select avvia", "Select inicia")
-STR(STR_PULS_ALT,       24, "%u · old",     "%u · alt",       "%u · ancien",  "%u · vecchio",  "%u · viejo")
-STR(STR_PULS_UNTER,     24, "%u · < Zone 1", "%u · < Zone 1", "%u · < Zone 1", "%u · < Zona 1", "%u · < Zona 1")
-STR(STR_PULS_ZONE,      24, "%u · Zone %d", "%u · Zone %d",   "%u · Zone %d", "%u · Zona %d",  "%u · Zona %d")
-STR(STR_KEIN_PULS,      0,  "no pulse",     "kein Puls",      "pas de pouls", "polso assente", "sin pulso")
 STR(STR_HOLE_STAND,     0,  "Loading …",    "Hole den Stand …", "Un instant …", "Un attimo …", "Cargando …")
 
-// ---- Laufender Schirm: die kleinen Felder ---------------------------------
-// Drei Spalten auf flint sind gut dreissig Punkte breit: sechs Zeichen.
-STR(STR_FELD_SAETZE,    0,  "Sets",         "Saetze",         "Séries",       "Serie",         "Series")
-STR(STR_FELD_GESAMT,    0,  "Total",        "Gesamt",         "Total",        "Totale",        "Total")
-STR(STR_FELD_BAHNEN,    0,  "Laps",         "Bahnen",         "Long.",        "Vasche",        "Largos")
-STR(STR_FELD_SCHR_KURZ, 0,  "Steps",        "Schr.",          "Pas",          "Passi",         "Pasos")
-STR(STR_FELD_SCHRITTE,  0,  "Steps",        "Schritte",       "Pas",          "Passi",         "Pasos")
+// ---- Die Felder: Beschriftung in Grossbuchstaben --------------------------
+// WIE IN DER WORKOUT-APP DER PEBBLE: ein Wort in Versalien ueber der grossen
+// Zahl. Gross geschrieben steht es HIER, nicht per toupper - das kennt keine
+// Umlaute und Akzente. Knapp: die Spalte ist auf flint gut hundert Punkte
+// breit, in Gothic 18 fett rund elf Zeichen.
+STR(STR_L_DAUER,        0,  "DURATION",     "DAUER",          "DURÉE",        "DURATA",        "DURACIÓN")
+STR(STR_L_PULS,         0,  "HEART RATE",   "PULS",           "POULS",        "BATTITO",       "PULSO")
+STR(STR_L_DISTANZ,      0,  "DISTANCE",     "DISTANZ",        "DISTANCE",     "DISTANZA",      "DISTANCIA")
+STR(STR_L_TEMPO,        0,  "PACE",         "TEMPO",          "ALLURE",       "PASSO",         "RITMO")
+STR(STR_L_SCHRITTE,     0,  "STEPS",        "SCHRITTE",       "PAS",          "PASSI",         "PASOS")
+STR(STR_L_KCAL,         0,  "CALORIES",     "KALORIEN",       "CALORIES",     "CALORIE",       "CALORÍAS")
+STR(STR_L_WDH,          0,  "REPS",         "WDH.",           "RÉP.",         "RIP.",          "REP.")
+STR(STR_L_PAUSE,        0,  "REST",         "PAUSE",          "REPOS",        "RECUPERO",      "DESCANSO")
+STR(STR_L_SAETZE,       0,  "SETS",         "SÄTZE",          "SÉRIES",       "SERIE",         "SERIES")
+STR(STR_L_GESAMT,       0,  "TOTAL REPS",   "WDH. GESAMT",    "RÉP. TOTAL",   "RIP. TOTALI",   "REP. TOTAL")
+STR(STR_L_BAHNEN,       0,  "LAPS",         "BAHNEN",         "LONGUEURS",    "VASCHE",        "LARGOS")
+
+// ---- Die Zonen, als Beschriftung des Pulsfelds ----------------------------
+// Statt "PULS" steht im Feld der Name der Zone, in der man gerade ist - wie
+// FAT BURN / ENDURANCE / PERFORMANCE in der Workout-App, nur mit fuenf Zonen.
+STR(STR_ZONE_1,         0,  "RECOVERY",     "ERHOLUNG",       "RÉCUP.",       "RECUPERO",      "RECUP.")
+STR(STR_ZONE_2,         0,  "FAT BURN",     "GRUNDLAGE",      "FONCIER",      "FONDO",         "BASE")
+STR(STR_ZONE_3,         0,  "ENDURANCE",    "AUSDAUER",       "ENDURANCE",    "RESISTENZA",    "RESISTENCIA")
+STR(STR_ZONE_4,         0,  "THRESHOLD",    "SCHWELLE",       "SEUIL",        "SOGLIA",        "UMBRAL")
+STR(STR_ZONE_5,         0,  "MAXIMUM",      "MAXIMUM",        "MAXIMUM",      "MASSIMO",       "MÁXIMO")
+
+// ---- Nach dem Speichern: die Zeit in den Zonen ----------------------------
+STR(STR_ZEIT_IN_ZONEN,  0,  "TIME IN ZONES", "ZEIT IN ZONEN", "TEMPS PAR ZONE", "TEMPO PER ZONA", "TIEMPO POR ZONA")
 
 // ---- Laufender Schirm: die Fusszeile --------------------------------------
 STR(STR_FUSS_SPEICHERE, 0,  "Saving …",     "Speichere …",    "Sauvegarde …", "Salvataggio …", "Guardando …")

@@ -80,3 +80,25 @@ void kurve_vergessen(void) {
     persist_delete(PERSIST_KURVE_BASIS + k);
   }
 }
+
+#ifndef KS_WORKER
+bool kurve_zeiten(uint32_t sekunden[KS_ZONEN + 1]) {
+  for (int z = 0; z <= KS_ZONEN; z++) sekunden[z] = 0;
+  const uint16_t anzahl = kurve_anzahl();
+  if (anzahl == 0) return false;
+  // Die Grenzen haengen am Maximalpuls - den kennt die App erst nach dem
+  // Lesen aus dem Persist.
+  puls_init();
+  bool etwas = false;
+  uint8_t puffer[KS_KURVE_STUECK];
+  for (uint16_t ab = 0, k = 0; ab < anzahl; ab += KS_KURVE_STUECK, k++) {
+    const int gelesen = persist_read_data(PERSIST_KURVE_BASIS + k, puffer, sizeof(puffer));
+    for (int i = 0; i < gelesen && ab + i < anzahl; i++) {
+      if (puffer[i] == 0) continue;
+      sekunden[puls_zone(puffer[i])] += KS_KURVE_TAKT_S;
+      etwas = true;
+    }
+  }
+  return etwas;
+}
+#endif

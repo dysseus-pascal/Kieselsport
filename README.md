@@ -16,16 +16,33 @@ Zusammenhängen.
 | ![Laufschirm auf emery](bildschirm_emery.png) | ![Laufschirm auf flint](bildschirm_flint.png) | ![Laufschirm auf gabbro](bildschirm_gabbro.png) |
 | 200×228, Farbe | 144×168, schwarzweiss | 260×260, rund |
 
-Derselbe Schirm auf allen dreien, und das ist nicht selbstverstaendlich: auf
-flint fiel das dritte Feld urspruenglich unten aus dem Bild, auf gabbro stand
-der Block zu weit oben und liess die breiteste Stelle des Kreises leer.
+*Die Bilder zeigen noch den Schirm bis 0.12.0; seit 0.13.0 sieht er aus wie
+unten beschrieben.*
+
+**Seit 0.13.0 nach dem Vorbild der Workout- und Health-App der Pebble**
+(abgeschaut im Quellcode von PebbleOS, `apps/system/workout` und `health`):
 
 | | |
 |---|---|
-| **Zeit** | gross, in der Mitte — das ist die Zahl, die man im Laufen liest |
-| **Puls** | daneben, dazu die Zone in Worten |
-| **Zonenbalken** | fünf Felder, das erreichte gefüllt |
-| **unten** | nur was die Sportart hergibt |
+| **Felder übereinander** | je Feld ein Wort in Versalien (DAUER, DISTANZ, KALORIEN …) und darunter die Zahl gross in LECO, die Einheit klein dahinter. Drei Felder auf emery, zwei auf flint und gabbro. Die Schrift ist die grösste, die in Höhe und Breite passt — »1:02:37« bekommt auf flint eine kleinere als »42«. |
+| **Pulsfeld in Zonenfarbe** | Sobald man in einer Zone ist, färbt sich das ganze Feld in ihrer Farbe und trägt ihren Namen (ERHOLUNG, GRUNDLAGE, AUSDAUER, SCHWELLE, MAXIMUM), darunter fünf Kästchen, dahinter ein Herz. Ein alter Wert steht grau, ohne Zone und mit hohlem Herz. Auf Schwarzweiss bleibt der Grund weiss; die Kästchen sagen die Zone. |
+| **Seiten** | Unten blättert beim Laufen weiter — neben der Taste steht »»«, oben rechts zeigen Punkte die Seite. In der Pause verwirft Unten wie bisher. |
+| **Startschirm** | vor dem Start die Art als grosses Bild auf ihrer Farbe (dieselben Farben wie in Kiesel-Helper), darunter ihr Name. Select startet. |
+| **Menü** | vor jeder Art ihr Bild — Laufschuh gibt es keinen, aber eine Läuferin, ein Rad, eine Wanderin mit Stock, eine Hantel, ein Rad vor Bergen, eine Sitzende, eine Schwimmerin. Die Bilder sind Striche und Kreise aus einem 28er-Raster (`symbole.c`), keine Bitmaps: dasselbe Bild passt in die Menüzeile und auf den halben Schirm. |
+| **Nach dem Speichern** | die Dauer und **»Zeit in Zonen«** wie in der Health-App: je Zone ein Balken in ihrer Farbe und die Minuten, gerechnet aus der Pulskurve, die die Uhr ohnehin sammelt. Der Schirm bleibt nach der Bestätigung des Telefons 15 Sekunden stehen; Zurück oder Select schliessen früher. |
+| **Die Leiste bleibt rot** | mit Herz und Tastenzeichen — sie macht Kieselsport zum Geschwister von Drinktervall und Flynformer. |
+
+Was jede Art zeigt, das Wichtigste zuerst:
+
+| | erste Seite | weitere |
+|---|---|---|
+| Laufen, Wandern | Dauer, Puls, Distanz | Tempo (min/km), Schritte, Kalorien |
+| Bike Strasse/Gravel, MTB | Dauer, Puls, Kalorien | |
+| Kraft | Wiederholungen im Satz — in der Pause die Pausenzeit —, Puls, Dauer | Sätze, Wiederholungen gesamt, Kalorien |
+| Yoga | Dauer, Puls, HRV | Kalorien |
+| Schwimmen | Dauer, Puls, Bahnen | Meter, Kalorien |
+
+(Auf zwei Feldern je Seite rutscht das dritte auf die nächste.)
 
 **Nicht jede Kennzahl passt zu jeder Art.** Schritte auf dem Bike sind eine
 Zufallszahl — die Hand am Lenker wackelt — und eine Distanz kann die Uhr ohne
@@ -90,7 +107,7 @@ Stop, bei der Pause und beim Verlassen der App.
 |---|---|
 | **Select** | Start — danach Pause und Weiter im Wechsel |
 | **Oben** | in der Pause: **speichern** |
-| **Unten** | in der Pause: **verwerfen** — zweimal drücken, damit kein Fehlgriff ein Training kostet |
+| **Unten** | beim Laufen: **nächste Seite**; in der Pause: **verwerfen** — zweimal drücken, damit kein Fehlgriff ein Training kostet |
 | **Zurück** | die App verlassen; **das Training läuft im Hintergrund weiter** |
 
 **Die Leiste rechts zeigt, was die Tasten gerade tun** — auf der Höhe der

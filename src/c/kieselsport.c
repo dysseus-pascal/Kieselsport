@@ -5,6 +5,7 @@
 #include "glanz.h"
 #include "botschaft.h"
 #include "thema.h"
+#include "symbole.h"
 #include "strings.h"
 
 // Kieselsport - Training auf der Uhr, Auswertung im eigenen Haus.
@@ -29,14 +30,41 @@ static uint16_t prv_zeilen(MenuLayer *liste, uint16_t abschnitt, void *ctx) {
   return ArtAnzahl;
 }
 
+static int16_t prv_zeilenhoehe(MenuLayer *liste, MenuIndex *index, void *ctx) {
+  return PBL_IF_ROUND_ELSE(56, KS_BREIT ? 52 : 44);
+}
+
 static void prv_zeichne_zeile(GContext *ctx, const Layer *zelle,
                               MenuIndex *index, void *daten) {
+  // VOR JEDER ART IHR BILD, wie Run, Walk und Workout in der Workout-App.
+  // Das Bild liest man schneller als das Wort - und es unterscheidet
+  // Strasse/Gravel von MTB, die beide "Bike" heissen.
+  //
   // DER OBERTITEL TRENNT, WAS ZUSAMMENGEHOERT: Strasse/Gravel und MTB
   // stehen im Menue nicht beieinander - die Zahl einer Art darf sich nie
   // verschieben, also kam MTB hinten dazu. Das Woertchen "Bike" darunter
   // sagt trotzdem, was beide sind.
   const Sportart art = (Sportart)index->row;
-  menu_cell_basic_draw(ctx, zelle, art_name(art), art_gruppe(art), NULL);
+  const GRect b = layer_get_bounds(zelle);
+  const bool hell = menu_cell_layer_is_highlighted(zelle);
+  const GColor farbe = hell ? KS_FARBE_AUF_LEISTE : KS_FARBE_TEXT;
+  const int16_t g = KS_BREIT ? 32 : 26;
+  const int16_t links = PBL_IF_ROUND_ELSE(30, 6);
+  symbol_sport(ctx, art, GPoint(links + g / 2, b.size.h / 2), g, farbe);
+
+  const int16_t tx = links + g + 8;
+  const char *gruppe = art_gruppe(art);
+  graphics_context_set_text_color(ctx, farbe);
+  const GFont name = fonts_get_system_font(KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
+  const int16_t nh = KS_BREIT ? 28 : 22;
+  const int16_t ny = gruppe ? b.size.h / 2 - nh + 4 : (b.size.h - nh) / 2 - 3;
+  graphics_draw_text(ctx, art_name(art), name, GRect(tx, ny, b.size.w - tx - 2, nh),
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  if (gruppe) {
+    graphics_draw_text(ctx, gruppe, fonts_get_system_font(FONT_KEY_GOTHIC_14),
+                       GRect(tx, b.size.h / 2 + 2, b.size.w - tx - 2, 16),
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
+  }
 }
 
 static void prv_gewaehlt(MenuLayer *liste, MenuIndex *index, void *daten) {
@@ -59,6 +87,7 @@ static void prv_laden(Window *fenster) {
   s_liste = menu_layer_create(GRect(0, 0, bounds.size.w - KS_LEISTE_B, bounds.size.h));
   menu_layer_set_callbacks(s_liste, NULL, (MenuLayerCallbacks) {
     .get_num_rows = prv_zeilen,
+    .get_cell_height = prv_zeilenhoehe,
     .draw_row = prv_zeichne_zeile,
     .select_click = prv_gewaehlt,
   });

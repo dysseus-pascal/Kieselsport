@@ -39,6 +39,17 @@
 // Die Farbe einer Pulszone (1..5); 0 und alles andere: Grau.
 GColor thema_zonenfarbe(int zone);
 
+// DER GRUND DES PULSFELDS - die Zonenfarbe, wo sie Grund sein kann. Wie in
+// der Workout-App der Pebble faerbt sich das ganze Feld, sobald man in einer
+// Zone ist: das sieht man aus dem Augenwinkel, ohne eine Zahl zu lesen.
+// Ohne Zone, ohne frischen Wert und auf Schwarzweiss: der normale Grund.
+GColor thema_zonengrund(int zone);
+
+// Die Farbe einer Sportart - dieselbe wie in Kiesel-Helper, soweit die
+// 64 Farben der Uhr sie hergeben. Grund des Startschirms.
+#include "art.h"
+GColor thema_sportfarbe(Sportart art);
+
 // Was neben einer Taste steht: ein Zeichen, kein Wort. Die Leiste ist dreissig
 // Punkte breit, da passt "Speichern" nicht hinein - eine Diskette schon, und
 // die versteht man auch im Vorbeischwingen.
@@ -50,6 +61,7 @@ typedef enum {
   SymbolLoeschen,    //< Abfalleimer
   SymbolLoeschenFrage, //< Abfalleimer mit Fragezeichen: nochmal druecken
   SymbolWahl,        //< Winkel nach rechts: auswaehlen
+  SymbolWeiter,      //< Doppelwinkel: naechste Seite (wie ">>" im Workout)
 } Symbol;
 
 // Die Leiste rechts ueber die volle Hoehe von `b`: das Herz oben - hohl,

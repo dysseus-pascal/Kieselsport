@@ -18,6 +18,34 @@ GColor thema_zonenfarbe(int zone) {
 #endif
 }
 
+GColor thema_zonengrund(int zone) {
+#if defined(PBL_COLOR)
+  if (zone >= 1 && zone <= 5) return thema_zonenfarbe(zone);
+#endif
+  return KS_FARBE_GRUND;
+}
+
+GColor thema_sportfarbe(Sportart art) {
+#if defined(PBL_COLOR)
+  // Aus Kiesel-Helper (colors.xml, sport_*), auf die naechste Farbe der
+  // Uhr gerundet. Strasse/Gravel und MTB teilen sich dort eine; hier traegt
+  // MTB das erdigere Braun, damit der Startschirm sagt, welches Rad es ist.
+  switch (art) {
+    case ArtLaufen:    return GColorOrange;
+    case ArtBike:      return GColorChromeYellow;
+    case ArtWandern:   return GColorArmyGreen;
+    case ArtKraft:     return GColorRoseVale;
+    case ArtMTB:       return GColorWindsorTan;
+    case ArtYoga:      return GColorPurpureus;
+    case ArtSchwimmen: return GColorTiffanyBlue;
+    default:           return KS_FARBE_LEISTE;
+  }
+#else
+  (void)art;
+  return GColorWhite;
+#endif
+}
+
 // Das Herz, 22 Punkte breit, um seinen Mittelpunkt. Zwei Boegen oben, eine
 // Spitze unten - grob genug, dass es auch auf 144 Punkten noch eines ist.
 static GPoint s_herz_punkte[] = {
@@ -86,6 +114,15 @@ static void prv_symbol(GContext *ctx, Symbol was, GPoint m) {
       graphics_context_set_stroke_width(ctx, 3);
       graphics_draw_line(ctx, GPoint(m.x - 3, m.y - 6), GPoint(m.x + 3, m.y));
       graphics_draw_line(ctx, GPoint(m.x + 3, m.y), GPoint(m.x - 3, m.y + 6));
+      graphics_context_set_stroke_width(ctx, 1);
+      break;
+    case SymbolWeiter:
+      // Zwei Winkel hintereinander: weiterblaettern.
+      graphics_context_set_stroke_width(ctx, 3);
+      for (int16_t dx = -4; dx <= 4; dx += 8) {
+        graphics_draw_line(ctx, GPoint(m.x + dx - 3, m.y - 5), GPoint(m.x + dx + 2, m.y));
+        graphics_draw_line(ctx, GPoint(m.x + dx + 2, m.y), GPoint(m.x + dx - 3, m.y + 5));
+      }
       graphics_context_set_stroke_width(ctx, 1);
       break;
     default:

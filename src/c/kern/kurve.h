@@ -39,3 +39,13 @@ uint16_t kurve_stueck(uint8_t *aus, uint16_t max);
 // Das Telefon hat `n` Werte bestaetigt.
 void kurve_bestaetigt(uint16_t n);
 void kurve_vergessen(void);
+
+// DIE ZEIT JE ZONE, aus der gemerkten Kurve - fuer den Schirm nach dem
+// Speichern, wie "Time in Zones" in der Health-App. Gelesen wird der ganze
+// Persist, nicht nur was noch aufs Telefon wartet. `sekunden[0]` ist unter
+// Zone 1, `sekunden[1..KS_ZONEN]` die Zonen; Werte ohne Puls zaehlen nicht.
+// Rueckgabe: false, wenn es keine Kurve gibt. Nur in der App.
+#ifndef KS_WORKER
+#include "puls.h"
+bool kurve_zeiten(uint32_t sekunden[KS_ZONEN + 1]);
+#endif

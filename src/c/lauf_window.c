@@ -5,6 +5,8 @@
 #include "puls.h"
 #include "thema.h"
 #include "strings.h"
+#include "symbole.h"
+#include "kurve.h"
 
 // Der laufende Schirm.
 //
@@ -49,6 +51,7 @@ static time_t s_gespeichert_seit;
 // nehmen muessen.
 #define BESTAETIGUNG_S 20
 static time_t s_verwerfen_bis; //< zweiter Druck auf Unten bis dahin
+static bool s_bestaetigt;      //< das Telefon hat die Aufzeichnung
 static time_t s_gestartet;     //< wann Select gedrueckt wurde
 
 static struct {
@@ -97,263 +100,510 @@ static void prv_text(GContext *ctx, const char *text, const char *schrift, GRect
                      GTextOverflowModeTrailingEllipsis, wie, NULL);
 }
 
-static void prv_zeichne(Layer *layer, GContext *ctx) {
-  // DIE UNVERDECKTE FLAECHE, nicht die ganze: faehrt die Timeline-
-  // Schnellansicht von unten herein, schrumpft der Schirm - und Puls und
-  // Zone ruecken mit nach oben, statt darunter zu verschwinden.
-  const GRect bounds = layer_get_unobstructed_bounds(layer);
-  const int16_t rand = KS_RAND;
-  // Die Spalte links von der Leiste; auf der runden Uhr mit viel Luft, weil
-  // der Kreis die Ecken nimmt.
-  const int16_t breite = bounds.size.w - KS_LEISTE_B - rand - 4;
-  int16_t y = PBL_IF_ROUND_ELSE(46, 18);
-  char text[24];
-  Symbol oben = SymbolKeins, mitte = SymbolKeins, unten = SymbolKeins;
-  const char *fuss = NULL;
+// --- Die Felder ---
+//
+// GEBAUT WIE DIE WORKOUT-APP DER PEBBLE: je Feld ein Wort in Versalien und
+// darunter die Zahl gross in LECO, zwei oder drei Felder uebereinander, und
+// mit Unten die naechste Seite. Frueher stand eine grosse Zahl oben und
+// darunter eine Reihe kleiner Spalten; die kleinen las beim Laufen niemand.
+//
+// Das Pulsfeld faerbt sich in der Farbe der Zone und traegt ihren Namen -
+// das sieht man aus dem Augenwinkel. Die rote Leiste rechts bleibt: sie
+// macht Kieselsport zu einem Geschwister von Drinktervall und Flynformer.
 
-  // Die Uhrzeit oben, klein und mittig: so faengt jeder Timeline-Eintrag an.
+typedef enum {
+  FeldDauer = 0,
+  FeldPuls,
+  FeldDistanz,
+  FeldTempo,
+  FeldSchritte,
+  FeldKcal,
+  FeldSatz,      //< Kraft: Wiederholungen im Satz - oder die Pause danach
+  FeldSaetze,
+  FeldGesamt,
+  FeldBahnen,
+  FeldMeter,
+  FeldHrv,
+} Feldart;
+
+#define KS_FELDER_MAX 6
+
+// Was jede Art zeigt, das Wichtigste zuerst: die erste Seite ist die, auf
+// die man im Vorbeischwingen schaut.
+static int prv_felder(Feldart *aus) {
+  int n = 0;
+  switch (s_art) {
+    case ArtLaufen:
+    case ArtWandern:
+      aus[n++] = FeldDauer; aus[n++] = FeldPuls; aus[n++] = FeldDistanz;
+      aus[n++] = FeldTempo; aus[n++] = FeldSchritte; aus[n++] = FeldKcal;
+      break;
+    case ArtKraft:
+      aus[n++] = FeldSatz; aus[n++] = FeldPuls; aus[n++] = FeldDauer;
+      aus[n++] = FeldSaetze; aus[n++] = FeldGesamt; aus[n++] = FeldKcal;
+      break;
+    case ArtYoga:
+      aus[n++] = FeldDauer; aus[n++] = FeldPuls; aus[n++] = FeldHrv; aus[n++] = FeldKcal;
+      break;
+    case ArtSchwimmen:
+      aus[n++] = FeldDauer; aus[n++] = FeldPuls; aus[n++] = FeldBahnen;
+      aus[n++] = FeldMeter; aus[n++] = FeldKcal;
+      break;
+    default:   // Strasse/Gravel, MTB: Zeit, Puls, Kalorien - wenig, aber wahr
+      aus[n++] = FeldDauer; aus[n++] = FeldPuls; aus[n++] = FeldKcal;
+      break;
+  }
+  return n;
+}
+
+static uint8_t s_seite;   //< welche Seite der Felder gerade steht
+
+static StringId prv_zonenname(int zone) {
+  static const StringId namen[KS_ZONEN] = { STR_ZONE_1, STR_ZONE_2, STR_ZONE_3, STR_ZONE_4, STR_ZONE_5 };
+  return (zone >= 1 && zone <= KS_ZONEN) ? namen[zone - 1] : STR_L_PULS;
+}
+
+typedef struct {
+  const char *name;
+  char zahl[16];
+  const char *einheit;   //< klein hinter der Zahl, oder NULL
+  GColor grund;
+  int zone;              //< Balken unter dem Namen; -1: keiner
+  bool herz;             //< Herz hinter der Zahl
+  bool voll;             //< ... gefuellt: frischer Wert
+  bool grau;             //< alter Wert: grau statt schwarz
+} Feld;
+
+static void prv_fuelle(Feld *f, Feldart art) {
+  memset(f, 0, sizeof(*f));
+  f->grund = KS_FARBE_GRUND;
+  f->zone = -1;
+  const size_t platz = sizeof(f->zahl);
+  switch (art) {
+    case FeldDauer:
+      f->name = S(STR_L_DAUER);
+      prv_zeit(f->zahl, platz, s_bereit ? 0 : s.sekunden);
+      break;
+    case FeldPuls:
+      f->herz = true;
+      if (s.puls == 0) {
+        f->name = S(STR_L_PULS);
+        snprintf(f->zahl, platz, "--");
+      } else if (!s.frisch) {
+        // EIN ALTER WERT STEHT GRAU DA und traegt keine Zone. Der Sensor
+        // behaelt den letzten guten Wert, wenn er am Lenker nichts
+        // Brauchbares misst - eine halbe Stunde "75" in Schwarz saehe aus
+        // wie eine Messung.
+        f->name = S(STR_L_PULS);
+        f->grau = true;
+        snprintf(f->zahl, platz, "%u", (unsigned)s.puls);
+      } else {
+        f->name = S(prv_zonenname(s.zone));
+        f->grund = thema_zonengrund(s.zone);
+        f->zone = s.zone;
+        f->voll = true;
+        snprintf(f->zahl, platz, "%u", (unsigned)s.puls);
+      }
+      break;
+    case FeldDistanz:
+      f->name = S(STR_L_DISTANZ);
+      f->einheit = "km";
+      snprintf(f->zahl, platz, "%u.%02u", (unsigned)(s.meter / 1000), (unsigned)((s.meter % 1000) / 10));
+      break;
+    case FeldTempo:
+      // Minuten je Kilometer. Unter fuenfzig Metern ist es Rauschen.
+      f->name = S(STR_L_TEMPO);
+      f->einheit = "/km";
+      if (s.meter >= 50 && s.sekunden > 0) {
+        const uint32_t je_km = (uint32_t)s.sekunden * 1000 / s.meter;
+        if (je_km < 100 * 60) prv_zeit(f->zahl, platz, je_km);
+        else snprintf(f->zahl, platz, "--:--");
+      } else {
+        snprintf(f->zahl, platz, "--:--");
+      }
+      break;
+    case FeldSchritte:
+      f->name = S(STR_L_SCHRITTE);
+      snprintf(f->zahl, platz, "%u", (unsigned)s.schritte);
+      break;
+    case FeldKcal:
+      f->name = S(STR_L_KCAL);
+      f->einheit = "kcal";
+      snprintf(f->zahl, platz, "%u", (unsigned)s.kcal);
+      break;
+    case FeldSatz:
+      // SIE IST NICHT IMMER DIESELBE ZAHL. Waehrend eines Satzes schaut man
+      // auf die Wiederholungen, danach auf die Pause.
+      if (s.ruht) {
+        f->name = S(STR_L_PAUSE);
+        prv_zeit(f->zahl, platz, s.ruhe_s);
+      } else {
+        f->name = S(STR_L_WDH);
+        snprintf(f->zahl, platz, "%u", (unsigned)s.laufend);
+      }
+      break;
+    case FeldSaetze:
+      f->name = S(STR_L_SAETZE);
+      snprintf(f->zahl, platz, "%u", (unsigned)s.saetze);
+      break;
+    case FeldGesamt:
+      f->name = S(STR_L_GESAMT);
+      snprintf(f->zahl, platz, "%u", (unsigned)s.reps);
+      break;
+    case FeldBahnen:
+      // LIEBER STRICHE ALS EINE NULL, solange der Kompass nicht zaehlt: eine
+      // Null sieht aus wie "du bist noch keine geschwommen".
+      f->name = S(STR_L_BAHNEN);
+      if (s.kompass) snprintf(f->zahl, platz, "%u", (unsigned)s.bahnen);
+      else snprintf(f->zahl, platz, "--");
+      break;
+    case FeldMeter:
+      f->name = S(STR_L_DISTANZ);
+      f->einheit = "m";
+      snprintf(f->zahl, platz, "%u", (unsigned)s.meter);
+      break;
+    case FeldHrv:
+      f->name = "HRV";
+      f->einheit = "ms";
+      if (s.hrv_ms > 0) snprintf(f->zahl, platz, "%u", (unsigned)s.hrv_ms);
+      else snprintf(f->zahl, platz, "--");
+      break;
+  }
+}
+
+// Die Zahlenschriften, gross nach klein. Genommen wird die groesste, die in
+// Hoehe und Breite passt - "1:02:37" braucht auf flint eine kleinere als
+// "42".
+static const char *const s_zahlschriften[] = {
+  FONT_KEY_LECO_42_NUMBERS,
+  FONT_KEY_LECO_38_BOLD_NUMBERS,
+  FONT_KEY_LECO_36_BOLD_NUMBERS,
+  FONT_KEY_LECO_32_BOLD_NUMBERS,
+  FONT_KEY_LECO_28_LIGHT_NUMBERS,
+  FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM,
+  FONT_KEY_LECO_20_BOLD_NUMBERS,
+};
+static const int16_t s_zahlhoehen[] = { 42, 38, 36, 32, 28, 26, 20 };
+
+static int16_t prv_breite(const char *text, GFont schrift) {
+  return graphics_text_layout_get_content_size(text, schrift, GRect(0, 0, 400, 80),
+                                               GTextOverflowModeTrailingEllipsis,
+                                               GTextAlignmentLeft).w;
+}
+
+// Das kleine Herz hinter der Pulszahl, 13 Punkte breit.
+static GPoint s_herzchen_punkte[] = {
+  {6, 11}, {0, 5}, {0, 2}, {2, 0}, {4, 0}, {6, 2}, {8, 0}, {10, 0}, {12, 2}, {12, 5},
+};
+static const GPathInfo s_herzchen_info = { 10, s_herzchen_punkte };
+static GPath *s_herzchen;
+
+#define KS_NAME_H 20
+#define KS_NAME_SCHRIFT FONT_KEY_GOTHIC_18_BOLD
+
+static void prv_feld(GContext *ctx, GRect r, const Feld *f, int16_t rand) {
+  graphics_context_set_fill_color(ctx, f->grund);
+  graphics_fill_rect(ctx, r, 0, GCornerNone);
+
+  const int16_t x = r.origin.x + rand;
+  const int16_t breite = r.size.w - rand - 4;
+  int16_t y = r.origin.y + 1;
+
   graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+  prv_text(ctx, f->name, KS_NAME_SCHRIFT, GRect(x, y - 2, breite, KS_NAME_H), GTextAlignmentLeft);
+  y += KS_NAME_H - 2;
+
+  // DER BALKEN DER ZONE: fuenf Kaestchen, die erreichten gefuellt. Auf
+  // Schwarzweiss ist er die ganze Auskunft ueber die Zone.
+  if (f->zone >= 0) {
+    for (int z = 1; z <= KS_ZONEN; z++) {
+      const GRect k = GRect(x + (z - 1) * 12, y, 10, 4);
+      graphics_context_set_fill_color(ctx, KS_FARBE_TEXT);
+      graphics_context_set_stroke_color(ctx, KS_FARBE_TEXT);
+      if (z <= f->zone) graphics_fill_rect(ctx, k, 0, GCornerNone);
+      else graphics_draw_rect(ctx, k);
+    }
+    y += 5;
+  }
+
+  // Die groesste Schrift, die passt.
+  const GFont klein = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+  const int16_t einheit_b = f->einheit ? prv_breite(f->einheit, klein) + 3 : 0;
+  const int16_t herz_b = f->herz ? 17 : 0;
+  const int16_t frei_h = r.origin.y + r.size.h - y;
+  const int anzahl = (int)(sizeof(s_zahlhoehen) / sizeof(s_zahlhoehen[0]));
+  int wahl = anzahl - 1;
+  for (int i = 0; i < anzahl; i++) {
+    if (s_zahlhoehen[i] + 2 > frei_h) continue;
+    const GFont g = fonts_get_system_font(s_zahlschriften[i]);
+    if (prv_breite(f->zahl, g) + einheit_b + herz_b <= breite) { wahl = i; break; }
+  }
+  const GFont zahl = fonts_get_system_font(s_zahlschriften[wahl]);
+  const int16_t zh = s_zahlhoehen[wahl];
+  // LECO steht mit etwas Luft oben in seiner Zeile: die Ziffern beginnen ein
+  // Fuenftel der Hoehe tiefer. Ein Stueck hoeher gesetzt, sitzt die Zahl
+  // unter dem Namen statt mitten im Feld.
+  const int16_t zy = y - zh / 6;
+  graphics_context_set_text_color(ctx, f->grau ? KS_FARBE_NEBEN : KS_FARBE_TEXT);
+  prv_text(ctx, f->zahl, s_zahlschriften[wahl], GRect(x, zy, breite, zh + 8), GTextAlignmentLeft);
+  const int16_t zb = prv_breite(f->zahl, zahl);
+
+  if (f->einheit) {
+    prv_text(ctx, f->einheit, FONT_KEY_GOTHIC_18_BOLD,
+             GRect(x + zb + 3, zy + zh - 18, einheit_b + 4, 22), GTextAlignmentLeft);
+  }
+  if (f->herz) {
+    if (!s_herzchen) s_herzchen = gpath_create(&s_herzchen_info);
+    gpath_move_to(s_herzchen, GPoint(x + zb + 4, zy + zh / 5 + 2));
+    if (f->voll) {
+      graphics_context_set_fill_color(ctx, KS_FARBE_TEXT);
+      gpath_draw_filled(ctx, s_herzchen);
+    }
+    graphics_context_set_stroke_color(ctx, f->grau ? KS_FARBE_NEBEN : KS_FARBE_TEXT);
+    graphics_context_set_stroke_width(ctx, 2);
+    gpath_draw_outline(ctx, s_herzchen);
+    graphics_context_set_stroke_width(ctx, 1);
+  }
+}
+
+// --- Die Schirme ---
+
+#define KS_KOPF_H PBL_IF_ROUND_ELSE(36, 16)
+
+// Die Kopfzeile: die Uhrzeit, wie in jeder Pebble-App - in der Pause statt
+// ihrer die Art und das Wort "Pause", fett, damit man es nicht uebersieht.
+static void prv_kopf(GContext *ctx, GRect b, int16_t w) {
+  char zeile[40];
+  const char *schrift = FONT_KEY_GOTHIC_14;
+  if (!s_bereit && s.da && s.zustand == LaufPause) {
+    snprintf(zeile, sizeof(zeile), S(STR_ZEILE_PAUSE), art_name(s_art));
+    schrift = FONT_KEY_GOTHIC_14_BOLD;
+  } else {
+    clock_copy_time_string(zeile, sizeof(zeile));
+  }
+  graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+  prv_text(ctx, zeile, schrift, GRect(0, PBL_IF_ROUND_ELSE(12, -1), w, 16), GTextAlignmentCenter);
+}
+
+// Ein Hinweis ueber dem unteren Rand: kein Telefon, Akku, Kompass, Tasten.
+static void prv_fuss(GContext *ctx, GRect b, int16_t w, const char *fuss) {
+  if (!fuss) return;
+  const int16_t h = 18;
+  const int16_t y = b.size.h - PBL_IF_ROUND_ELSE(46, h);
+  graphics_context_set_fill_color(ctx, KS_FARBE_TEXT);
+  graphics_fill_rect(ctx, GRect(0, y, w, h), 0, GCornerNone);
+  graphics_context_set_text_color(ctx, KS_FARBE_GRUND);
+  prv_text(ctx, fuss, FONT_KEY_GOTHIC_14_BOLD, GRect(PBL_IF_ROUND_ELSE(KS_RAND, 4), y, w - PBL_IF_ROUND_ELSE(KS_RAND, 8), h),
+           PBL_IF_ROUND_ELSE(GTextAlignmentCenter, GTextAlignmentLeft));
+}
+
+// VOR DEM START: die Art gross, als Bild auf ihrer Farbe - wie der Schirm
+// "Run" in der Workout-App. Select startet.
+static void prv_zeichne_bereit(GContext *ctx, GRect b, int16_t w) {
+  const GColor grund = thema_sportfarbe(s_art);
+  const GColor schrift = gcolor_legible_over(grund);
+  graphics_context_set_fill_color(ctx, grund);
+  graphics_fill_rect(ctx, GRect(0, 0, w, b.size.h), 0, GCornerNone);
+
   char uhr[10];
   clock_copy_time_string(uhr, sizeof(uhr));
-  prv_text(ctx, uhr, FONT_KEY_GOTHIC_14,
-           GRect(0, PBL_IF_ROUND_ELSE(10, 0), bounds.size.w - KS_LEISTE_B, 16),
-           GTextAlignmentCenter);
+  graphics_context_set_text_color(ctx, schrift);
+  prv_text(ctx, uhr, FONT_KEY_GOTHIC_14, GRect(0, PBL_IF_ROUND_ELSE(12, -1), w, 16), GTextAlignmentCenter);
 
-  const ArtInfo *info = art_info(s_art);
-  const char *gross_schrift = KS_BREIT ? FONT_KEY_LECO_36_BOLD_NUMBERS
-                                       : FONT_KEY_LECO_26_BOLD_NUMBERS_AM_PM;
-  const int16_t gross_h = KS_BREIT ? 46 : 38;
-  const char *titel_schrift = KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD;
-  const int16_t titel_h = KS_BREIT ? 30 : 24;
+  const int16_t g = (w < b.size.h ? w : b.size.h) * 9 / 20;
+  const int16_t mitte_x = w / 2 + PBL_IF_ROUND_ELSE(KS_LEISTE_DX, 0);
+  const int16_t mitte_y = b.size.h * 2 / 5;
+  symbol_sport(ctx, s_art, GPoint(mitte_x, mitte_y), g, schrift);
 
-  if (s_gespeichert) {
-    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, art_name(s_art), FONT_KEY_GOTHIC_14, GRect(rand, y, breite, 16), GTextAlignmentLeft);
-    y += 14;
-    graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
-    prv_zeit(text, sizeof(text), s.sekunden);
-    prv_text(ctx, text, gross_schrift, GRect(rand, y, breite, gross_h), GTextAlignmentLeft);
-    y += gross_h;
-    prv_text(ctx, S(STR_GESPEICHERT), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
-    y += titel_h;
-    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    const bool wartet = telefon_wartet();
-    const bool aufgegeben = wartet && time(NULL) - s_gespeichert_seit >= BESTAETIGUNG_S;
-    prv_text(ctx, aufgegeben ? S(STR_TEL_AUFGEGEBEN)
-                 : wartet ? S(STR_TEL_WARTET) : S(STR_TEL_ANGEKOMMEN),
-             KS_BREIT ? FONT_KEY_GOTHIC_18 : FONT_KEY_GOTHIC_14,
-             GRect(rand, y, breite, 22), GTextAlignmentLeft);
-    thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
-    return;
+  const int16_t ty = mitte_y + g / 2 + 4;
+  graphics_context_set_text_color(ctx, schrift);
+  prv_text(ctx, art_name(s_art), KS_BREIT ? FONT_KEY_GOTHIC_28_BOLD : FONT_KEY_GOTHIC_24_BOLD,
+           GRect(4, ty, w - 8, 34), GTextAlignmentCenter);
+  prv_text(ctx, S(STR_SELECT_STARTET), FONT_KEY_GOTHIC_14,
+           GRect(4, ty + (KS_BREIT ? 32 : 28), w - 8, 18), GTextAlignmentCenter);
+
+  // OHNE TELEFON KEINE STRECKE: das Telefon zeichnet sie auf, die Uhr hat
+  // kein GPS. Wer das vor dem Start liest, kann das Telefon holen - danach
+  // ist es zu spaet.
+  if (art_info(s_art)->distanz && !connection_service_peek_pebble_app_connection()) {
+    prv_fuss(ctx, b, w, S(STR_FUSS_KEIN_TEL));
   }
+  thema_leiste(ctx, b, false, GColorWhite, SymbolKeins, SymbolStart, SymbolKeins);
+}
 
-  if (!s_bereit && !s.da) {
-    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, "Kieselsport", FONT_KEY_GOTHIC_14, GRect(rand, y, breite, 16), GTextAlignmentLeft);
-    y += 14 + gross_h;
-    graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
-    prv_text(ctx, S(STR_HOLE_STAND), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
-    thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
-    return;
-  }
+// NACH DEM SPEICHERN: die Dauer und, wenn es einen Puls gab, die Zeit je
+// Zone als Balken - wie "Time in Zones" in der Health-App. Darunter, ob das
+// Telefon die Aufzeichnung schon hat.
+static bool s_zonen_da;
+static uint32_t s_zonen[KS_ZONEN + 1];
 
-  // --- Die kleine Zeile: Art und Zustand ---
-  // 40 statt 32 Bytes: "Ruta/Gravel · listo" und Akzente brauchen mehr
-  // als das deutsche "Laufen · bereit".
-  char zeile[40];
-  if (s_bereit) snprintf(zeile, sizeof(zeile), S(STR_ZEILE_BEREIT), art_name(s_art));
-  else if (s.zustand == LaufPause) snprintf(zeile, sizeof(zeile), S(STR_ZEILE_PAUSE), art_name(s_art));
-  else if (info->reps) {
-    // Beim Kraft steht die Gesamtzeit hier oben: gross ist unten der Satz.
-    char zeit[16];
-    prv_zeit(zeit, sizeof(zeit), s.sekunden);
-    snprintf(zeile, sizeof(zeile), "%s · %s", art_name(s_art), zeit);
-  } else snprintf(zeile, sizeof(zeile), "%s", art_name(s_art));
+static void prv_zeichne_gespeichert(GContext *ctx, GRect b, int16_t w) {
+  const int16_t rand = KS_RAND;
+  const int16_t breite = w - rand - 4;
+  int16_t y = KS_KOPF_H;
+  char text[24];
+  prv_kopf(ctx, b, w);
+
   graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-  prv_text(ctx, zeile, FONT_KEY_GOTHIC_14, GRect(rand, y, breite, 16), GTextAlignmentLeft);
-  y += 14;
+  prv_text(ctx, art_name(s_art), FONT_KEY_GOTHIC_18_BOLD, GRect(rand, y - 2, breite, 20), GTextAlignmentLeft);
+  y += 16;
+  graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+  prv_zeit(text, sizeof(text), s.sekunden);
+  prv_text(ctx, text, KS_BREIT ? FONT_KEY_LECO_36_BOLD_NUMBERS : FONT_KEY_LECO_28_LIGHT_NUMBERS,
+           GRect(rand, y - 4, breite, 44), GTextAlignmentLeft);
+  y += KS_BREIT ? 38 : 30;
 
-  // --- Die grosse Zahl ---
-  //
-  // SIE IST NICHT IMMER DIE ZEIT. Beim Krafttraining schaut man waehrend
-  // eines Satzes auf die Wiederholungen und danach auf die Pause - die
-  // Gesamtzeit interessiert erst hinterher. Der Schirm zeigt deshalb, was
-  // gerade gilt, und die Zeit rutscht in die kleine Zeile darueber.
-  const char *gross_name = NULL;
-  if (info->reps && !s_bereit && s.zustand != LaufPause) {
-    if (s.ruht) {
-      prv_zeit(text, sizeof(text), s.ruhe_s);
-      gross_name = S(STR_GROSS_PAUSE);
-    } else {
-      snprintf(text, sizeof(text), "%u", (unsigned)s.laufend);
-      gross_name = S(STR_GROSS_WDH);
+  uint32_t summe = 0, groesste = 0;
+  for (int z = 1; z <= KS_ZONEN; z++) {
+    summe += s_zonen[z];
+    if (s_zonen[z] > groesste) groesste = s_zonen[z];
+  }
+  if (s_zonen_da && summe > 0) {
+    // Der Kopf wie in der Health-App: ein farbiges Band mit weisser Schrift.
+    graphics_context_set_fill_color(ctx, KS_FARBE_LEISTE);
+    graphics_fill_rect(ctx, GRect(rand, y, breite, 18), 3, GCornersAll);
+    graphics_context_set_text_color(ctx, KS_FARBE_AUF_LEISTE);
+    prv_text(ctx, S(STR_ZEIT_IN_ZONEN), FONT_KEY_GOTHIC_14_BOLD, GRect(rand, y, breite, 18), GTextAlignmentCenter);
+    y += 20;
+    // Die Zeilen: Zone, Balken, Minuten. Die laengste Zone fuellt die Breite.
+    const int16_t zeile_h = (b.size.h - PBL_IF_ROUND_ELSE(44, 18) - y) / KS_ZONEN;
+    const int16_t zh = zeile_h > 18 ? 18 : zeile_h;
+    for (int z = KS_ZONEN; z >= 1; z--) {
+      graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+      snprintf(text, sizeof(text), "Z%d", z);
+      prv_text(ctx, text, FONT_KEY_GOTHIC_14_BOLD, GRect(rand, y - 3, 20, 18), GTextAlignmentLeft);
+      snprintf(text, sizeof(text), "%u'", (unsigned)((s_zonen[z] + 30) / 60));
+      prv_text(ctx, text, FONT_KEY_GOTHIC_14, GRect(rand + breite - 30, y - 3, 30, 18), GTextAlignmentRight);
+      const int16_t bx = rand + 20, bb = breite - 20 - 32;
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorWhite));
+      graphics_context_set_stroke_color(ctx, KS_FARBE_TEXT);
+      const GRect voll = GRect(bx, y + 3, bb, zh - 8 > 4 ? zh - 8 : 4);
+      graphics_fill_rect(ctx, voll, 0, GCornerNone);
+#ifndef PBL_COLOR
+      graphics_draw_rect(ctx, voll);   // weiss auf weiss braucht einen Rand
+#endif
+      const int16_t lang = groesste ? (int16_t)(bb * s_zonen[z] / groesste) : 0;
+      graphics_context_set_fill_color(ctx, PBL_IF_COLOR_ELSE(thema_zonenfarbe(z), GColorBlack));
+      graphics_fill_rect(ctx, GRect(bx, voll.origin.y, lang, voll.size.h), 0, GCornerNone);
+      y += zh;
     }
   } else {
-    prv_zeit(text, sizeof(text), s_bereit ? 0 : s.sekunden);
+    graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
+    prv_text(ctx, S(STR_GESPEICHERT), KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD,
+             GRect(rand, y, breite, 30), GTextAlignmentLeft);
   }
-  graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
-  // Mit Stunden wird die Zeit auf der schmalen Uhr zu breit fuer die Spalte.
-  const bool lang = strlen(text) > 5;
-  prv_text(ctx, text, (lang && !KS_BREIT) ? FONT_KEY_LECO_20_BOLD_NUMBERS : gross_schrift,
-           GRect(rand, y + ((lang && !KS_BREIT) ? 8 : 0), breite, gross_h), GTextAlignmentLeft);
-  if (gross_name) {
+
+  const bool wartet = telefon_wartet();
+  const bool aufgegeben = wartet && time(NULL) - s_gespeichert_seit >= BESTAETIGUNG_S;
+  // Aufgegeben ist zweizeilig - der kurze Satz im Fuss reicht nicht, und
+  // dann steht er ueber den Zonen, was nach dem Aufgeben niemand mehr liest.
+  if (aufgegeben) {
+    graphics_context_set_fill_color(ctx, KS_FARBE_TEXT);
+    const int16_t h = 36;
+    const int16_t fy = b.size.h - PBL_IF_ROUND_ELSE(56, h);
+    graphics_fill_rect(ctx, GRect(0, fy, w, h), 0, GCornerNone);
+    graphics_context_set_text_color(ctx, KS_FARBE_GRUND);
+    prv_text(ctx, S(STR_TEL_AUFGEGEBEN), FONT_KEY_GOTHIC_14_BOLD,
+             GRect(PBL_IF_ROUND_ELSE(KS_RAND, 4), fy, w - PBL_IF_ROUND_ELSE(KS_RAND, 8), h),
+             PBL_IF_ROUND_ELSE(GTextAlignmentCenter, GTextAlignmentLeft));
+  } else {
+    prv_fuss(ctx, b, w, wartet ? S(STR_TEL_WARTET) : S(STR_TEL_ANGEKOMMEN));
+  }
+  thema_leiste(ctx, b, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
+}
+
+static void prv_zeichne(Layer *layer, GContext *ctx) {
+  // DIE UNVERDECKTE FLAECHE, nicht die ganze: faehrt die Timeline-
+  // Schnellansicht von unten herein, schrumpft der Schirm - und die Felder
+  // ruecken mit, statt darunter zu verschwinden.
+  const GRect bounds = layer_get_unobstructed_bounds(layer);
+  // Die Flaeche links von der Leiste.
+  const int16_t w = bounds.size.w - KS_LEISTE_B;
+
+  if (s_gespeichert) { prv_zeichne_gespeichert(ctx, bounds, w); return; }
+  if (s_bereit) { prv_zeichne_bereit(ctx, bounds, w); return; }
+
+  if (!s.da) {
+    prv_kopf(ctx, bounds, w);
     graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, gross_name, FONT_KEY_GOTHIC_14, GRect(rand, y + gross_h - 20, breite, 16),
-             GTextAlignmentRight);
+    prv_text(ctx, S(STR_HOLE_STAND), KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD,
+             GRect(KS_RAND, bounds.size.h / 2 - 14, w - KS_RAND - 4, 30), GTextAlignmentLeft);
+    thema_leiste(ctx, bounds, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
+    return;
   }
-  y += gross_h;
 
-  // --- Der Titel: Puls und Zone, mit dem Balken darunter ---
-  graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
-  if (s_bereit) {
-    prv_text(ctx, S(STR_SELECT_STARTET), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
-    y += titel_h;
-  } else if (s.puls > 0) {
-    // EIN ALTER WERT STEHT GRAU DA und traegt keine Zone. Der Sensor behaelt
-    // den letzten guten Wert, wenn er am Lenker nichts Brauchbares misst -
-    // eine halbe Stunde "75" in Schwarz saehe aus wie eine Messung.
-    if (!s.frisch) {
-      graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-      snprintf(text, sizeof(text), S(STR_PULS_ALT), (unsigned)s.puls);
-    } else if (s.zone == 0) {
-      snprintf(text, sizeof(text), S(STR_PULS_UNTER), (unsigned)s.puls);
-    } else {
-      snprintf(text, sizeof(text), S(STR_PULS_ZONE), (unsigned)s.puls, s.zone);
+  prv_kopf(ctx, bounds, w);
+
+  // --- Die Felder dieser Seite ---
+  //
+  // DREI UEBEREINANDER, wo die Hoehe es traegt (emery), sonst zwei. Auf der
+  // runden Uhr zwei: oben und unten nimmt der Kreis zu viel weg.
+  Feldart alle[KS_FELDER_MAX];
+  const int anzahl = prv_felder(alle);
+  const int16_t oben = KS_KOPF_H;
+  const int16_t unten = bounds.size.h - PBL_IF_ROUND_ELSE(30, 0);
+  const int16_t hoehe = unten - oben;
+  const int je_seite = PBL_IF_ROUND_ELSE(2, hoehe >= 200 ? 3 : (hoehe >= 110 ? 2 : 1));
+  const int seiten = (anzahl + je_seite - 1) / je_seite;
+  if (s_seite >= seiten) s_seite = 0;
+
+  const int erstes = s_seite * je_seite;
+  int hier = anzahl - erstes;
+  if (hier > je_seite) hier = je_seite;
+  const int16_t feld_h = hoehe / je_seite;
+  for (int i = 0; i < hier; i++) {
+    Feld f;
+    prv_fuelle(&f, alle[erstes + i]);
+    // Rund: mehr Rand, der Kreis nimmt oben und unten die linke Ecke.
+    prv_feld(ctx, GRect(0, oben + i * feld_h, w, feld_h), &f, PBL_IF_ROUND_ELSE(48, KS_RAND));
+    // Ein feiner Strich zwischen zwei Feldern mit demselben Grund.
+    if (i > 0) {
+      graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
+      graphics_draw_line(ctx, GPoint(0, oben + i * feld_h), GPoint(w - 1, oben + i * feld_h));
     }
-    prv_text(ctx, text, titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
-    y += titel_h;
+  }
 
-    // Der Balken: fuenf Felder, das erreichte gefuellt. Auf schwarzweissen
-    // Uhren ist er die Zone, weil dort keine Farbe sie tragen kann.
-    const int16_t fach = breite / KS_ZONEN;
-    for (int z = 1; z <= KS_ZONEN; z++) {
-      const GRect kasten = GRect(rand + (z - 1) * fach, y, fach - 2, 6);
-      if (z <= s.zone) {
-        graphics_context_set_fill_color(ctx, thema_zonenfarbe(z));
-        graphics_fill_rect(ctx, kasten, 0, GCornerNone);
-      } else {
+  // Die Seite als Punkte in der Kopfzeile rechts, wenn es mehrere gibt.
+  if (seiten > 1) {
+    for (int i = 0; i < seiten; i++) {
+      const GPoint p = GPoint(w - PBL_IF_ROUND_ELSE(40, 6) - (seiten - 1 - i) * 6, PBL_IF_ROUND_ELSE(30, 8));
+      graphics_context_set_fill_color(ctx, KS_FARBE_TEXT);
+      if (i == s_seite) graphics_fill_circle(ctx, p, 2);
+      else {
         graphics_context_set_stroke_color(ctx, KS_FARBE_NEBEN);
-        graphics_draw_rect(ctx, kasten);
+        graphics_draw_circle(ctx, p, 2);
       }
     }
-    y += 12;
-  } else {
-    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, S(STR_KEIN_PULS), titel_schrift, GRect(rand, y, breite, titel_h), GTextAlignmentLeft);
-    y += titel_h;
-  }
-
-  // --- Die kleinen Felder, nur was die Art hergibt ---
-  //
-  // EINE REIHE, SO VIELE SPALTEN WIE FELDER. Der erste Entwurf setzte zwei
-  // je Reihe - auf flint fiel damit das dritte Feld unten aus dem Schirm.
-  // 168 Punkte tragen keine zwei Reihen mehr, 228 schon; also richtet sich
-  // die Aufteilung nach der Zahl der Felder und nicht nach einer Annahme.
-  const char *namen[3];
-  char werte[3][16];
-  int felder = 0;
-
-  if (s_art == ArtYoga && !s_bereit) {
-    namen[felder] = "HRV ms";
-    if (s.hrv_ms > 0) snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.hrv_ms);
-    else snprintf(werte[felder], sizeof(werte[0]), "…");
-    felder++;
-  }
-  if (info->reps) {
-    namen[felder] = S(STR_FELD_SAETZE);
-    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.saetze);
-    felder++;
-    // NICHT NOCHMAL "Wdh.": das steht schon gross oben. Hier zaehlt das
-    // Training zusammen, dort der laufende Satz.
-    namen[felder] = S(STR_FELD_GESAMT);
-    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.reps);
-    felder++;
-  }
-  if (info->bahnen) {
-    namen[felder] = S(STR_FELD_BAHNEN);
-    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.bahnen);
-    felder++;
-    namen[felder] = "m";
-    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.meter);
-    felder++;
-  }
-  if (info->schritte) {
-    // Auf schmalen Spalten abgekuerzt: "Schrit..." sagt weniger als "Schr."
-    namen[felder] = (breite / (info->distanz ? 3 : 2)) < 50 ? S(STR_FELD_SCHR_KURZ) : S(STR_FELD_SCHRITTE);
-    snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.schritte);
-    felder++;
-  }
-  if (info->distanz) {
-    namen[felder] = "km";
-    snprintf(werte[felder], sizeof(werte[0]), "%u.%02u", (unsigned)(s.meter / 1000),
-             (unsigned)((s.meter % 1000) / 10));
-    felder++;
-  }
-  namen[felder] = "kcal";
-  snprintf(werte[felder], sizeof(werte[0]), "%u", (unsigned)s.kcal);
-  felder++;
-
-  const int16_t spaltenbreite = breite / felder;
-  // Die Zahl schrumpft mit der Spalte: "1234" in 24 Punkt braucht gut
-  // vierzig Punkte Breite, und drei Spalten auf 144 lassen keine vierzig.
-  const char *zahlenschrift = spaltenbreite >= 62 ? FONT_KEY_GOTHIC_24_BOLD
-                            : spaltenbreite >= 40 ? FONT_KEY_GOTHIC_18_BOLD
-                                                  : FONT_KEY_GOTHIC_14_BOLD;
-
-  for (int i = 0; i < felder; i++) {
-    const GRect kasten = GRect(rand + i * spaltenbreite, y, spaltenbreite - 3, 40);
-    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, namen[i], FONT_KEY_GOTHIC_14,
-             GRect(kasten.origin.x, kasten.origin.y, kasten.size.w, 16), GTextAlignmentLeft);
-    graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
-    prv_text(ctx, werte[i], zahlenschrift,
-             GRect(kasten.origin.x, kasten.origin.y + 13, kasten.size.w, 28), GTextAlignmentLeft);
   }
 
   // --- Was die Tasten gerade tun ---
   //
   // DIE LEISTE ZEIGT ES, auf der Hoehe der Taste, als Zeichen statt als
-  // Wort: Dreieck, Balken, Diskette, Eimer. Drei Tasten mit drei
-  // Bedeutungen, die vom Zustand abhaengen - das merkt sich niemand, und ein
-  // Fehlgriff kostete frueher ein Training. Was eine Taste gerade nicht tut,
-  // steht auch nicht da.
+  // Wort. Beim Laufen blaettert Unten weiter (">>" wie im Workout), in der
+  // Pause verwirft es - deshalb dort zweimal.
+  Symbol so = SymbolKeins, sm = SymbolKeins, su = SymbolKeins;
+  const char *fuss = NULL;
   if (s_speichert) {
     fuss = S(STR_FUSS_SPEICHERE);
   } else if (s_verwerfen_bis > time(NULL)) {
-    mitte = SymbolStart;
-    unten = SymbolLoeschenFrage;
+    sm = SymbolStart;
+    su = SymbolLoeschenFrage;
     fuss = S(STR_FUSS_NOCHMAL);
   } else if (s.zustand == LaufPause) {
-    oben = SymbolSpeichern;
-    mitte = SymbolStart;
-    unten = SymbolLoeschen;
+    so = SymbolSpeichern;
+    sm = SymbolStart;
+    su = SymbolLoeschen;
     fuss = S(STR_FUSS_PAUSE);
-  } else if (s_bereit) {
-    mitte = SymbolStart;
-    // OHNE TELEFON KEINE STRECKE: das Telefon zeichnet sie auf, die Uhr hat
-    // kein GPS. Wer das vor dem Start liest, kann das Telefon holen - danach
-    // ist es zu spaet.
-    if (info->distanz && !connection_service_peek_pebble_app_connection()) {
-      fuss = S(STR_FUSS_KEIN_TEL);
-    }
   } else {
-    mitte = SymbolPause;
-    if (s.sparsam) {
-      fuss = S(STR_FUSS_AKKU);
-    } else if (info->bahnen && !s.kompass) {
-      // LIEBER SAGEN, DASS NICHT GEZAEHLT WIRD, als eine Null zeigen. Eine
-      // Null bei den Bahnen sieht aus wie "du bist noch keine geschwommen".
-      fuss = S(STR_FUSS_KOMPASS);
-    }
+    sm = SymbolPause;
+    if (seiten > 1) su = SymbolWeiter;
+    if (s.sparsam) fuss = S(STR_FUSS_AKKU);
+    else if (art_info(s_art)->bahnen && !s.kompass) fuss = S(STR_FUSS_KOMPASS);
   }
-  if (fuss) {
-    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
-    prv_text(ctx, fuss, FONT_KEY_GOTHIC_14,
-             GRect(rand, bounds.size.h - PBL_IF_ROUND_ELSE(40, 18), breite, 16), GTextAlignmentLeft);
-  }
+  prv_fuss(ctx, bounds, w, fuss);
 
-  const bool herz = !s_bereit && s.puls > 0 && s.frisch;
-  thema_leiste(ctx, bounds, herz, thema_zonenfarbe(s.zone), oben, mitte, unten);
+  const bool herz = s.puls > 0 && s.frisch;
+  thema_leiste(ctx, bounds, herz, thema_zonenfarbe(s.zone), so, sm, su);
 }
 
 // --- Brummen ---
@@ -426,10 +676,12 @@ static void prv_zu(void *data) {
       s_zu = app_timer_register(500, prv_zu, NULL);
       return;
     }
-  } else if (s_gespeichert && time(NULL) - s_gespeichert_seit < 1) {
-    // Bestaetigt: kurz "angekommen" zeigen, dann zu.
+  } else if (s_gespeichert && !s_bestaetigt) {
+    // Bestaetigt: "angekommen" zeigen - und mit den Zonen so lange, dass man
+    // sie lesen kann. Zurueck oder Select schliessen frueher.
+    s_bestaetigt = true;
     if (s_flaeche) layer_mark_dirty(s_flaeche);
-    s_zu = app_timer_register(1200, prv_zu, NULL);
+    s_zu = app_timer_register(s_zonen_da ? 15000 : 1200, prv_zu, NULL);
     return;
   }
   window_stack_remove(s_fenster, true);
@@ -489,6 +741,10 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
       s_speichert = false;
       s_gespeichert = true;
       s_gespeichert_seit = time(NULL);
+      // Die Zeit je Zone JETZT, solange die Kurve im Persist liegt: ist sie
+      // beim Telefon angekommen, wird sie geloescht. Eine alte Kurve eines
+      // frueheren Trainings zaehlt nicht.
+      s_zonen_da = kurve_beginn() == s.beginn && kurve_zeiten(s_zonen);
       app_worker_kill();
       telefon_nachsenden();
       // NICHT NACH ZWEI SEKUNDEN ZUGEHEN. Der erste Entwurf tat das - und
@@ -514,7 +770,10 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
 // --- Bedienung ---
 
 static void prv_select(ClickRecognizerRef anlass, void *context) {
-  if (s_speichert || s_gespeichert) return;
+  // Nach dem Speichern schliesst Select - hat das Telefon die Aufzeichnung
+  // noch nicht, bleibt sie im Persist und geht beim naechsten Oeffnen.
+  if (s_gespeichert) { window_stack_remove(s_fenster, true); return; }
+  if (s_speichert) return;
   if (s_bereit) {
     prv_start();
   } else {
@@ -542,7 +801,15 @@ static void prv_oben(ClickRecognizerRef anlass, void *context) {
 }
 
 static void prv_unten(ClickRecognizerRef anlass, void *context) {
-  if (s_bereit || s_speichert || s_gespeichert || s.zustand != LaufPause) return;
+  if (s_bereit || s_speichert || s_gespeichert) return;
+  if (s.zustand == LaufLaeuft) {
+    // BEIM LAUFEN BLAETTERT UNTEN - zur naechsten Seite der Felder. Ein
+    // Druck hier kostet nichts; verworfen wird nur aus der Pause.
+    s_seite++;
+    layer_mark_dirty(s_flaeche);
+    return;
+  }
+  if (s.zustand != LaufPause) return;
   const time_t jetzt = time(NULL);
   if (s_verwerfen_bis > jetzt) {
     // ZWEIMAL, WEIL ES DAS TRAINING KOSTET. Der erste Druck fragt, der
@@ -607,6 +874,9 @@ static void prv_entladen(Window *fenster) {
 static void prv_oeffnen(void) {
   s_speichert = false;
   s_gespeichert = false;
+  s_bestaetigt = false;
+  s_zonen_da = false;
+  s_seite = 0;
   s_verwerfen_bis = 0;
   memset(&s, 0, sizeof(s));
 
