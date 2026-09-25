@@ -1,7 +1,7 @@
 {
   "name": "kieselsport",
   "author": "dysseus-pascal",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "license": "CC0-1.0",
   "keywords": [
     "pebble-app"
@@ -58,7 +58,12 @@
       "NACHT_ANZAHL",
       "NACHT_MINUTEN",
       "NACHT_HRV",
-      "HRV_ZEIT"
+      "HRV_ZEIT",
+      "SPO2_FRAGE",
+      "SPO2_WERT",
+      "SPO2_ZEIT",
+      "SPO2_NACHT_MITTEL",
+      "SPO2_NACHT_TIEF"
     ],
     "resources": {
       "media": []

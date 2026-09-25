@@ -6,7 +6,7 @@
 #include "botschaft.h"
 #include "thema.h"
 #include "symbole.h"
-#include "hrv_window.h"
+#include "messen_window.h"
 #include "morgen_window.h"
 #include "schluessel.h"
 #include "strings.h"
@@ -30,7 +30,7 @@ static Window *s_menue;
 static MenuLayer *s_liste;
 static Layer *s_leiste;
 
-// Die Arten, und darunter die HRV-Messung - was Herzintervall war.
+// Die Arten, und darunter "Messen": HRV und SpO2.
 #define KS_ZEILE_HRV ArtAnzahl
 
 static uint16_t prv_zeilen(MenuLayer *liste, uint16_t abschnitt, void *ctx) {
@@ -62,12 +62,12 @@ static void prv_zeichne_zeile(GContext *ctx, const Layer *zelle,
   else symbol_sport(ctx, art, GPoint(links + g / 2, b.size.h / 2), g, farbe);
 
   const int16_t tx = links + g + 8;
-  const char *gruppe = hrv ? S(STR_HRV_UNTER) : art_gruppe(art);
+  const char *gruppe = hrv ? S(STR_MESSEN_UNTER) : art_gruppe(art);
   graphics_context_set_text_color(ctx, farbe);
   const GFont name = fonts_get_system_font(KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD);
   const int16_t nh = KS_BREIT ? 28 : 22;
   const int16_t ny = gruppe ? b.size.h / 2 - nh + 4 : (b.size.h - nh) / 2 - 3;
-  graphics_draw_text(ctx, hrv ? "HRV" : art_name(art), name, GRect(tx, ny, b.size.w - tx - 2, nh),
+  graphics_draw_text(ctx, hrv ? S(STR_MESSEN) : art_name(art), name, GRect(tx, ny, b.size.w - tx - 2, nh),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
   if (gruppe) {
     graphics_draw_text(ctx, gruppe, fonts_get_system_font(FONT_KEY_GOTHIC_14),
@@ -77,7 +77,7 @@ static void prv_zeichne_zeile(GContext *ctx, const Layer *zelle,
 }
 
 static void prv_gewaehlt(MenuLayer *liste, MenuIndex *index, void *daten) {
-  if (index->row == KS_ZEILE_HRV) hrv_window_zeige();
+  if (index->row == KS_ZEILE_HRV) messen_window_zeige();
   else lauf_window_zeige((Sportart)index->row);
 }
 

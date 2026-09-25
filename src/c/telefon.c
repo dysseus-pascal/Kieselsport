@@ -29,6 +29,7 @@ typedef enum {
   SendungEinst,
   SendungNacht,
   SendungHrv,
+  SendungFrage,
 } Sendung;
 static Sendung s_letzte;
 
@@ -134,7 +135,54 @@ static int32_t prv_minuten(Tuple *t) {
   return atoi(z) * 60 + atoi(doppel + 1);
 }
 
+// --- SpO2 vom Telefon ---
+static void (*s_spo2_antwort)(const Spo2Antwort *a);
+static bool s_frage_offen;
+static uint8_t s_frage_versuche;
+static AppTimer *s_frage_timer;
+
+static void prv_frage_senden(void *data) {
+  s_frage_timer = NULL;
+  if (!s_frage_offen) return;
+  if (s_frage_versuche >= 6) { s_frage_offen = false; return; }
+  s_frage_versuche++;
+  DictionaryIterator *out;
+  if (app_message_outbox_begin(&out) != APP_MSG_OK) {
+    s_frage_timer = app_timer_register(700, prv_frage_senden, NULL);
+    return;
+  }
+  dict_write_int32(out, MESSAGE_KEY_SPO2_FRAGE, 1);
+  s_letzte = SendungFrage;
+  app_message_outbox_send();
+}
+
+void telefon_spo2_frage(void (*antwort)(const Spo2Antwort *a)) {
+  s_spo2_antwort = antwort;
+  if (s_frage_timer) { app_timer_cancel(s_frage_timer); s_frage_timer = NULL; }
+  s_frage_offen = antwort != NULL;
+  s_frage_versuche = 0;
+  if (s_frage_offen) prv_frage_senden(NULL);
+}
+
 static void prv_inbox(DictionaryIterator *iter, void *context) {
+  // DIE ANTWORT AUF DIE SPO2-FRAGE. Sie traegt keine Einstellung - also
+  // gleich weiter, ohne die Einstellungen neu zu melden.
+  Tuple *spo2 = dict_find(iter, MESSAGE_KEY_SPO2_WERT);
+  if (spo2) {
+    Tuple *zeit = dict_find(iter, MESSAGE_KEY_SPO2_ZEIT);
+    Tuple *mittel = dict_find(iter, MESSAGE_KEY_SPO2_NACHT_MITTEL);
+    Tuple *tief = dict_find(iter, MESSAGE_KEY_SPO2_NACHT_TIEF);
+    const Spo2Antwort a = {
+      .wert = (uint8_t)prv_zahl(spo2),
+      .zeit = zeit ? (uint32_t)prv_zahl(zeit) : 0,
+      .nacht_mittel = mittel ? (uint8_t)prv_zahl(mittel) : 0,
+      .nacht_tief = tief ? (uint8_t)prv_zahl(tief) : 0,
+    };
+    s_frage_offen = false;
+    if (s_spo2_antwort) s_spo2_antwort(&a);
+    return;
+  }
+
   Tuple *max = dict_find(iter, MESSAGE_KEY_MAXPULS);
   if (max) einstellungen_maxpuls(prv_zahl(max));
 
@@ -198,6 +246,9 @@ static void prv_abgelehnt(DictionaryIterator *iter, AppMessageResult grund, void
     case SendungHrv:
       if (!s_hrv_timer) s_hrv_timer = app_timer_register(2000, prv_hrv_senden, NULL);
       break;
+    case SendungFrage:
+      if (s_frage_offen && !s_frage_timer) s_frage_timer = app_timer_register(1000, prv_frage_senden, NULL);
+      break;
     default:
       break;
   }
@@ -232,6 +283,11 @@ static void prv_angekommen(DictionaryIterator *iter, void *context) {
       return;
     case SendungHrv:
       prv_hrv_bestaetigt();
+      return;
+    case SendungFrage:
+      // Angekommen heisst nicht beantwortet: die Antwort kommt als eigene
+      // Nachricht. Bis dahin nicht noch einmal fragen.
+      s_frage_offen = false;
       return;
     case SendungZusammenfassung:
       break;
