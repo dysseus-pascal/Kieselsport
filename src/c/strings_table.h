@@ -62,6 +62,8 @@ STR(STR_L_PAUSE,        0,  "REST",         "PAUSE",          "REPOS",        "R
 STR(STR_L_SAETZE,       0,  "SETS",         "SÄTZE",          "SÉRIES",       "SERIE",         "SERIES")
 STR(STR_L_GESAMT,       0,  "TOTAL REPS",   "WDH. GESAMT",    "RÉP. TOTAL",   "RIP. TOTALI",   "REP. TOTAL")
 STR(STR_L_BAHNEN,       0,  "LAPS",         "BAHNEN",         "LONGUEURS",    "VASCHE",        "LARGOS")
+STR(STR_L_UHR,          0,  "TIME",         "UHRZEIT",        "HEURE",        "ORA",           "HORA")
+STR(STR_PAUSIERT,       0,  "PAUSED",       "PAUSE",          "EN PAUSE",     "IN PAUSA",      "EN PAUSA")
 
 // ---- Die Zonen, als Beschriftung des Pulsfelds ----------------------------
 // Statt "PULS" steht im Feld der Name der Zone, in der man gerade ist - wie
