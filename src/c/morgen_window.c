@@ -9,13 +9,17 @@ static Window *s_fenster;
 static Layer *s_flaeche;
 static AppTimer *s_zu;
 static bool s_fertig;
+// Was geholt wurde: ein liegengebliebenes Training oder die Nacht.
+static bool s_training;
 
 static void prv_zeichne(Layer *layer, GContext *ctx) {
   const GRect b = layer_get_unobstructed_bounds(layer);
   const int16_t w = b.size.w - KS_LEISTE_B;
   const int16_t rand = PBL_IF_ROUND_ELSE(44, KS_RAND);
   graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
-  graphics_draw_text(ctx, s_fertig ? S(STR_NACHT_FERTIG) : S(STR_NACHT_SENDEN),
+  const char *text = s_training ? (s_fertig ? S(STR_TRAINING_FERTIG) : S(STR_TRAINING_SENDEN))
+                                 : (s_fertig ? S(STR_NACHT_FERTIG) : S(STR_NACHT_SENDEN));
+  graphics_draw_text(ctx, text,
                      fonts_get_system_font(KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
                      GRect(rand, b.size.h / 2 - 30, w - rand - 4, 60),
                      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
@@ -24,7 +28,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
 
 static void prv_zu(void *data) {
   s_zu = NULL;
-  // Die ganze App geht zu: sie wurde nur fuer die Nacht geholt.
+  // Die ganze App geht zu: sie wurde nur zum Senden geholt.
   window_stack_pop_all(true);
 }
 
@@ -53,6 +57,9 @@ static void prv_entladen(Window *fenster) {
 
 void morgen_window_zeige(void) {
   s_fertig = false;
+  // Die Zusammenfassung geht vor der Nacht (telefon.c); fertig ist es erst,
+  // wenn auch die Nacht drueben ist - dann ruft telefon.c prv_fertig.
+  s_training = telefon_wartet();
   s_fenster = window_create();
   window_set_background_color(s_fenster, KS_FARBE_GRUND);
   window_set_window_handlers(s_fenster, (WindowHandlers) { .load = prv_laden, .unload = prv_entladen });

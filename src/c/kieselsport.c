@@ -146,8 +146,9 @@ static void prv_init(void) {
   const bool laeuft = persist_exists(PERSIST_LAEUFT) && persist_read_bool(PERSIST_LAEUFT);
   if (laeuft) {
     lauf_window_zeige_laufend();
-  } else if (launch_reason() == APP_LAUNCH_WORKER && telefon_nacht_wartet()) {
-    // AM MORGEN: der Worker hat die App geholt, weil eine Nacht fertig ist.
+  } else if (launch_reason() == APP_LAUNCH_WORKER && (telefon_wartet() || telefon_nacht_wartet())) {
+    // DER WORKER HAT DIE APP GEHOLT: am Morgen, weil eine Nacht fertig ist,
+    // oder weil ein gespeichertes Training nie beim Telefon ankam.
     morgen_window_zeige();
   } else if (launch_reason() == APP_LAUNCH_TIMELINE_ACTION) {
     // AUS DEM PIN "TRAINING": die Aktion "Jetzt starten" traegt die Art als

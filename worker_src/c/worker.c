@@ -172,8 +172,36 @@ static void prv_laeuft(bool ja) {
   prv_takt(ja);
 }
 
+// EIN GESPEICHERTES TRAINING, DAS NIE ANKAM. Die App schickt die
+// Zusammenfassung und wartet zwanzig Sekunden auf das Telefon; war es in
+// der Zeit nicht zu erreichen, geht sie zu, und das Training lag im
+// Persist, bis jemand die App wieder oeffnete - am 25.9. ein Krafttraining,
+// das im Verlauf bei "pausiert" stehenblieb. Jetzt holt der Worker die App
+// selbst: nach 2, 10 und 30 Minuten, dann nicht mehr - ist das Telefon so
+// lange weg, geht es beim naechsten Oeffnen.
+static const uint8_t NACHSENDEN_MIN[] = { 2, 10, 30 };
+static uint8_t s_nachsenden_versuch;
+static uint16_t s_nachsenden_minuten;
+
+static bool prv_nachsenden(void) {
+  if (!persist_exists(PERSIST_WARTET)) {
+    s_nachsenden_versuch = 0;
+    s_nachsenden_minuten = 0;
+    return false;
+  }
+  if (s_nachsenden_versuch >= ARRAY_LENGTH(NACHSENDEN_MIN)) return false;
+  s_nachsenden_minuten++;
+  if (s_nachsenden_minuten < NACHSENDEN_MIN[s_nachsenden_versuch]) return false;
+  s_nachsenden_versuch++;
+  return true;
+}
+
 static void prv_tick(struct tm *zeit, TimeUnits einheiten) {
   if (training_zustand() == LaufAus) {
+    if (zeit->tm_sec == 0 && prv_nachsenden()) {
+      worker_launch_app();
+      return;
+    }
     // DIE NACHT - nur ohne Training, und nur zur vollen Minute. Ist sie eben
     // fertig geworden, kommt die App nach vorn und schickt sie ans Telefon;
     // der Worker kann es nicht (siehe oben).
@@ -225,6 +253,8 @@ static void prv_speichern(void) {
   liste[0] = 0;
   if (abschnitt_anzahl() > 0) abschnitt_als_text(liste, sizeof(liste));
   wartend_merken(&t, liste);
+  s_nachsenden_versuch = 0;
+  s_nachsenden_minuten = 0;
   // Die Kurve dazu - die App schickt sie, sobald die Zusammenfassung
   // drueben ist.
   kurve_merken(t.beginn);

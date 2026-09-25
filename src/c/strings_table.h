@@ -99,6 +99,8 @@ STR(STR_HRV_ZUWENIG,    0,  "Too few beats. Select again.", "Zu wenig Schläge. 
 // ---- Die Nacht am Morgen --------------------------------------------------
 STR(STR_NACHT_SENDEN,   0,  "Sending sleep to phone …", "Schlaf geht ans Telefon …", "Envoi du sommeil …", "Invio del sonno …", "Enviando el sueño …")
 STR(STR_NACHT_FERTIG,   0,  "Sleep sent",   "Schlaf übertragen", "Sommeil envoyé", "Sonno inviato", "Sueño enviado")
+STR(STR_TRAINING_SENDEN, 0, "Sending workout to phone …", "Training geht ans Telefon …", "Envoi de l'entraînement …", "Invio dell'allenamento …", "Enviando el entrenamiento …")
+STR(STR_TRAINING_FERTIG, 0, "Workout sent", "Training übertragen", "Entraînement envoyé", "Allenamento inviato", "Entrenamiento enviado")
 
 // ---- App-Glance (Untertitel im Startmenue) --------------------------------
 // STR_GLANZ_SEIT ist nur der Kopf; die Dauer haengt glanz.c als Vorlage des
