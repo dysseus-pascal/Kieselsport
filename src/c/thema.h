@@ -52,19 +52,20 @@ GColor thema_zonengrund(int zone);
 GColor thema_sportfarbe(Sportart art);
 
 // Was neben einer Taste steht: ein Zeichen, kein Wort. Die Leiste ist dreissig
-// Punkte breit, da passt "Speichern" nicht hinein - eine Diskette schon, und
-// die versteht man auch im Vorbeischwingen.
+// Punkte breit, da passt "Speichern" nicht hinein - ein Haken schon, und
+// den versteht man auch im Vorbeischwingen.
 typedef enum {
   SymbolKeins = 0,   //< die Taste tut gerade nichts
   SymbolStart,       //< Dreieck: los
   SymbolPause,       //< zwei Balken
-  SymbolSpeichern,   //< Diskette
+  SymbolSpeichern,   //< gruener Haken
   SymbolLoeschen,    //< Abfalleimer
   SymbolLoeschenFrage, //< Abfalleimer mit Fragezeichen: nochmal druecken
   SymbolWahl,        //< Winkel nach rechts: auswaehlen
   SymbolWeiter,      //< Doppelwinkel: naechste Seite (wie ">>" im Workout)
 } Symbol;
 
-// Die Leiste rechts ueber die volle Hoehe von `b`: bis zu drei Zeichen (Oben, Select, Unten) auf der Hoehe der Tasten. SymbolKeins
+// Die Leiste rechts ueber die volle Hoehe von `b`: bis zu drei Zeichen
+// (Oben, Select, Unten) auf der Hoehe der Tasten. SymbolKeins
 // laesst eine Taste stumm: was nichts tut, wird nicht angeschrieben.
 void thema_leiste(GContext *ctx, GRect b, Symbol oben, Symbol mitte, Symbol unten);

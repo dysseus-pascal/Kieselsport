@@ -70,14 +70,13 @@ static void prv_symbol(GContext *ctx, Symbol was, GPoint m) {
       graphics_fill_rect(ctx, GRect(m.x + 2, m.y - 7, 4, 14), 0, GCornerNone);
       break;
     case SymbolSpeichern:
-      // Die Diskette: ein Quadrat mit abgeschnittener Ecke, oben der
-      // Schieber mit seinem Fenster, unten das Etikett.
-      graphics_fill_rect(ctx, GRect(m.x - 8, m.y - 8, 16, 16), 2, GCornerBottomLeft | GCornerBottomRight | GCornerTopLeft);
-      graphics_context_set_fill_color(ctx, grund);
-      graphics_fill_rect(ctx, GRect(m.x - 4, m.y - 8, 8, 5), 0, GCornerNone);
-      graphics_fill_rect(ctx, GRect(m.x - 5, m.y + 2, 10, 6), 0, GCornerNone);
-      graphics_context_set_fill_color(ctx, weiss);
-      graphics_fill_rect(ctx, GRect(m.x + 1, m.y - 7, 2, 3), 0, GCornerNone);
+      // Der Haken, gruen wie "fertig" - eine Diskette kennt am Handgelenk
+      // kaum noch jemand. Schwarzweiss bleibt er weiss.
+      graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorGreen, weiss));
+      graphics_context_set_stroke_width(ctx, 4);
+      graphics_draw_line(ctx, GPoint(m.x - 7, m.y), GPoint(m.x - 2, m.y + 5));
+      graphics_draw_line(ctx, GPoint(m.x - 2, m.y + 5), GPoint(m.x + 7, m.y - 6));
+      graphics_context_set_stroke_width(ctx, 1);
       break;
     case SymbolLoeschen:
     case SymbolLoeschenFrage: {
