@@ -83,6 +83,9 @@ static void prv_symbol(GContext *ctx, Symbol was, GPoint m) {
       // Der Eimer: Griff, Deckel, Koerper mit zwei Rillen. Beim zweiten
       // Druck steht ein Fragezeichen daneben: jetzt ist es ernst.
       const int16_t dx = was == SymbolLoeschenFrage ? -4 : 0;
+      // Rot wie "weg" - das Gegenstueck zum gruenen Haken oben.
+      const GColor eimer = PBL_IF_COLOR_ELSE(GColorRed, weiss);
+      graphics_context_set_fill_color(ctx, eimer);
       graphics_fill_rect(ctx, GRect(m.x + dx - 2, m.y - 9, 4, 2), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(m.x + dx - 7, m.y - 7, 14, 2), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(m.x + dx - 5, m.y - 4, 10, 13), 1, GCornerBottomLeft | GCornerBottomRight);
@@ -90,7 +93,7 @@ static void prv_symbol(GContext *ctx, Symbol was, GPoint m) {
       graphics_fill_rect(ctx, GRect(m.x + dx - 2, m.y - 2, 1, 8), 0, GCornerNone);
       graphics_fill_rect(ctx, GRect(m.x + dx + 1, m.y - 2, 1, 8), 0, GCornerNone);
       if (was == SymbolLoeschenFrage) {
-        graphics_context_set_text_color(ctx, weiss);
+        graphics_context_set_text_color(ctx, eimer);
         graphics_draw_text(ctx, "?", fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD),
                            GRect(m.x + 5, m.y - 12, 12, 22),
                            GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
