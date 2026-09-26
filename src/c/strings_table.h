@@ -80,7 +80,6 @@ STR(STR_ZEIT_IN_ZONEN,  0,  "TIME IN ZONES", "ZEIT IN ZONEN", "TEMPS PAR ZONE", 
 // ---- Laufender Schirm: die Fusszeile --------------------------------------
 STR(STR_FUSS_SPEICHERE, 0,  "Saving …",     "Speichere …",    "Sauvegarde …", "Salvataggio …", "Guardando …")
 STR(STR_FUSS_NOCHMAL,   0,  "Down again: discard", "Nochmal Unten: verwerfen", "Encore Bas : effacer", "Ancora Giù: scarta", "Otra vez Abajo: borrar")
-STR(STR_FUSS_PAUSE,     0,  "Up saves, Down discards", "Oben speichert, Unten verwirft", "Haut garde, Bas efface", "Su salva, Giù scarta", "Arriba guarda, Abajo borra")
 STR(STR_FUSS_KEIN_TEL,  0,  "No phone: no distance", "Kein Telefon: keine Strecke", "Sans tél. : pas de distance", "Senza telefono, niente km", "Sin teléfono: sin distancia")
 STR(STR_FUSS_AKKU,      0,  "Low battery: HR every 5 s", "Akku schwach: Puls alle 5 s", "Batterie faible : pouls/5 s", "Batt. bassa: polso ogni 5 s", "Batería baja: pulso cada 5 s")
 STR(STR_FUSS_KOMPASS,   0,  "Compass not ready", "Kompass nicht bereit", "Boussole pas prête", "Bussola non pronta", "Brújula no lista")

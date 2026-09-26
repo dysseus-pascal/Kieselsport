@@ -694,7 +694,8 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
     so = SymbolSpeichern;
     sm = SymbolStart;
     su = SymbolLoeschen;
-    fuss = S(STR_FUSS_PAUSE);
+    // KEIN Hinweis: die Leiste zeigt Speichern und Loeschen schon als
+    // Zeichen, und neben ihr passte der Satz in keiner Sprache ganz hin.
   } else {
     if (s.sparsam) fuss = S(STR_FUSS_AKKU);
     else if (art_info(s_art)->bahnen && !s.kompass) fuss = S(STR_FUSS_KOMPASS);
