@@ -760,7 +760,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
   prv_fuss(ctx, bounds, w, fuss);
 
   if (pause) {
-    thema_leiste(ctx, bounds, prv_puls_frisch(), thema_zonenfarbe(s.zone), so, sm, su);
+    thema_leiste(ctx, bounds, so, sm, su);
   } else {
     prv_tastenpunkt(ctx, bounds);
   }

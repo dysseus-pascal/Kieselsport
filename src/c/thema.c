@@ -46,18 +46,6 @@ GColor thema_sportfarbe(Sportart art) {
 #endif
 }
 
-// Das Herz, 22 Punkte breit, um seinen Mittelpunkt. Zwei Boegen oben, eine
-// Spitze unten - grob genug, dass es auch auf 144 Punkten noch eines ist.
-static GPoint s_herz_punkte[] = {
-  {0, 10}, {-11, -1}, {-11, -6}, {-8, -9}, {-4, -9}, {0, -5},
-  {4, -9}, {8, -9}, {11, -6}, {11, -1},
-};
-static const GPathInfo s_herz_info = {
-  .num_points = sizeof(s_herz_punkte) / sizeof(s_herz_punkte[0]),
-  .points = s_herz_punkte,
-};
-static GPath *s_herz;
-
 // Das Dreieck fuer Start, 14 Punkte hoch, um seinen Mittelpunkt.
 static GPoint s_dreieck_punkte[] = { {-5, -7}, {7, 0}, {-5, 7} };
 static const GPathInfo s_dreieck_info = { 3, s_dreieck_punkte };
@@ -130,27 +118,12 @@ static void prv_symbol(GContext *ctx, Symbol was, GPoint m) {
   }
 }
 
-void thema_leiste(GContext *ctx, GRect b, bool herz_voll, GColor herz,
-                  Symbol oben, Symbol mitte, Symbol unten) {
+void thema_leiste(GContext *ctx, GRect b, Symbol oben, Symbol mitte, Symbol unten) {
   const int16_t sx = b.size.w - KS_LEISTE_B;
   graphics_context_set_fill_color(ctx, KS_FARBE_LEISTE);
   graphics_fill_rect(ctx, GRect(sx, 0, KS_LEISTE_B, b.size.h), 0, GCornerNone);
 
-  // Das Herz oben, wo Drinktervall sein Glas hat. Voll heisst: der Sensor
-  // misst; die Fuellung ist die Zone. Hohl heisst: kein Puls - und das sieht
-  // man aus dem Augenwinkel, ohne eine Zahl zu lesen.
   const int16_t cx = sx + KS_LEISTE_B / 2 - KS_LEISTE_DX;
-  const int16_t cy = PBL_IF_ROUND_ELSE(58, 22);
-  if (!s_herz) s_herz = gpath_create(&s_herz_info);
-  gpath_move_to(s_herz, GPoint(cx, cy));
-  if (herz_voll) {
-    graphics_context_set_fill_color(ctx, herz);
-    gpath_draw_filled(ctx, s_herz);
-  }
-  graphics_context_set_stroke_color(ctx, KS_FARBE_AUF_LEISTE);
-  graphics_context_set_stroke_width(ctx, 2);
-  gpath_draw_outline(ctx, s_herz);
-  graphics_context_set_stroke_width(ctx, 1);
 
   // Die Zeichen auf Tastenhoehe: die Tasten sitzen bei einem Viertel, der
   // Haelfte und drei Vierteln der Hoehe. Wer hinschaut, sieht neben der

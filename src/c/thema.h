@@ -65,9 +65,6 @@ typedef enum {
   SymbolWeiter,      //< Doppelwinkel: naechste Seite (wie ">>" im Workout)
 } Symbol;
 
-// Die Leiste rechts ueber die volle Hoehe von `b`: das Herz oben - hohl,
-// solange kein Puls da ist, sonst in `herz` gefuellt - und darunter bis zu
-// drei Zeichen (Oben, Select, Unten) auf der Hoehe der Tasten. SymbolKeins
+// Die Leiste rechts ueber die volle Hoehe von `b`: bis zu drei Zeichen (Oben, Select, Unten) auf der Hoehe der Tasten. SymbolKeins
 // laesst eine Taste stumm: was nichts tut, wird nicht angeschrieben.
-void thema_leiste(GContext *ctx, GRect b, bool herz_voll, GColor herz,
-                  Symbol oben, Symbol mitte, Symbol unten);
+void thema_leiste(GContext *ctx, GRect b, Symbol oben, Symbol mitte, Symbol unten);

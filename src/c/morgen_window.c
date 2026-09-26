@@ -23,7 +23,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
                      fonts_get_system_font(KS_BREIT ? FONT_KEY_GOTHIC_24_BOLD : FONT_KEY_GOTHIC_18_BOLD),
                      GRect(rand, b.size.h / 2 - 30, w - rand - 4, 60),
                      GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
-  thema_leiste(ctx, b, false, GColorWhite, SymbolKeins, SymbolKeins, SymbolKeins);
+  thema_leiste(ctx, b, SymbolKeins, SymbolKeins, SymbolKeins);
 }
 
 static void prv_zu(void *data) {

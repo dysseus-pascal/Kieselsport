@@ -28,7 +28,6 @@
 
 static Window *s_menue;
 static MenuLayer *s_liste;
-static Layer *s_leiste;
 
 // Die Arten, und darunter "Messen": HRV und SpO2.
 #define KS_ZEILE_HRV ArtAnzahl
@@ -55,7 +54,15 @@ static void prv_zeichne_zeile(GContext *ctx, const Layer *zelle,
   const bool hrv = index->row == KS_ZEILE_HRV;
   const GRect b = layer_get_bounds(zelle);
   const bool hell = menu_cell_layer_is_highlighted(zelle);
-  const GColor farbe = hell ? KS_FARBE_AUF_LEISTE : KS_FARBE_TEXT;
+  // DIE GEWAEHLTE ZEILE TRAEGT DIE FARBE IHRER ART - dieselbe wie der Balken
+  // im Training, also sieht man schon hier, wohin Select fuehrt.
+  // Schwarzweiss ist jede Sportfarbe weiss - dort bleibt die Markierung schwarz.
+  const GColor grund = PBL_IF_COLOR_ELSE(hrv ? KS_FARBE_LEISTE : thema_sportfarbe(art), KS_FARBE_LEISTE);
+  if (hell) {
+    graphics_context_set_fill_color(ctx, grund);
+    graphics_fill_rect(ctx, b, 0, GCornerNone);
+  }
+  const GColor farbe = hell ? gcolor_legible_over(grund) : KS_FARBE_TEXT;
   const int16_t g = KS_BREIT ? 32 : 26;
   const int16_t links = PBL_IF_ROUND_ELSE(30, 6);
   if (hrv) symbol_herz(ctx, GPoint(links + g / 2, b.size.h / 2), g, farbe);
@@ -81,20 +88,13 @@ static void prv_gewaehlt(MenuLayer *liste, MenuIndex *index, void *daten) {
   else lauf_window_zeige((Sportart)index->row);
 }
 
-static void prv_zeichne_leiste(Layer *layer, GContext *ctx) {
-  // Im Menue ist das Herz hohl: gemessen wird erst im Training. Select
-  // waehlt - Oben und Unten blaettern, das sagt die Liste selbst.
-  thema_leiste(ctx, layer_get_bounds(layer), false, GColorWhite, SymbolKeins, SymbolWahl, SymbolKeins);
-}
-
 static void prv_laden(Window *fenster) {
   Layer *wurzel = window_get_root_layer(fenster);
   const GRect bounds = layer_get_bounds(wurzel);
 
-  // DIE LISTE LAESST DER LEISTE PLATZ - dasselbe Bild wie der laufende
-  // Schirm, damit der Wechsel dorthin kein Sprung ist. Die gewaehlte Zeile
-  // traegt die Leistenfarbe.
-  s_liste = menu_layer_create(GRect(0, 0, bounds.size.w - KS_LEISTE_B, bounds.size.h));
+  // KEINE LEISTE: Oben, Unten und Select erklaert die Liste selbst, und
+  // die Namen bekommen die volle Breite.
+  s_liste = menu_layer_create(bounds);
   menu_layer_set_callbacks(s_liste, NULL, (MenuLayerCallbacks) {
     .get_num_rows = prv_zeilen,
     .get_cell_height = prv_zeilenhoehe,
@@ -105,14 +105,9 @@ static void prv_laden(Window *fenster) {
   menu_layer_set_highlight_colors(s_liste, KS_FARBE_LEISTE, KS_FARBE_AUF_LEISTE);
   menu_layer_set_click_config_onto_window(s_liste, fenster);
   layer_add_child(wurzel, menu_layer_get_layer(s_liste));
-
-  s_leiste = layer_create(bounds);
-  layer_set_update_proc(s_leiste, prv_zeichne_leiste);
-  layer_add_child(wurzel, s_leiste);
 }
 
 static void prv_entladen(Window *fenster) {
-  layer_destroy(s_leiste);
   menu_layer_destroy(s_liste);
 }
 

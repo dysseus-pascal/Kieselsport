@@ -69,8 +69,7 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
       break;
   }
 
-  const bool voll = s_phase == HrvMisst && puls_hrv_anzahl() > 0;
-  thema_leiste(ctx, b, voll, GColorWhite, SymbolKeins,
+  thema_leiste(ctx, b, SymbolKeins,
                s_phase == HrvMisst ? SymbolKeins : SymbolStart, SymbolKeins);
 }
 
