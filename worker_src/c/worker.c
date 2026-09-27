@@ -133,10 +133,11 @@ static void prv_stand_senden(void) {
   m.data2 = puls_maximum();
   app_worker_send_message(BotStand5, &m);
 
-  // ZWEI STUECKE JE SEKUNDE, nicht alle zwoelf auf einmal: der Weg zur App
-  // traegt ohnehin schon fuenf Nachrichten je Sekunde. Nach sechs Sekunden
-  // steht die ganze Minute.
-  for (int k = 0; k < 2 && s_minute_offen > 0; k++) {
+  // EIN STUECK JE SENDUNG, nicht alle zwoelf auf einmal: der Weg zur App
+  // traegt schon fuenf Nachrichten je Sekunde, und bei zehn in einem Zug
+  // beendet das System die App (siehe prv_brumm_vormerken). Mit dem Abo
+  // dazwischen steht die ganze Minute nach gut acht Sekunden.
+  if (s_minute_offen > 0) {
     const uint8_t *v = &s_minute[(s_minute_offen - 1) * KS_MINUTE_JE];
     m.data0 = (uint16_t)((s_minute_offen - 1) * KS_MINUTE_JE | v[0] << 8);
     m.data1 = (uint16_t)(v[1] | v[2] << 8);
@@ -154,9 +155,10 @@ static void prv_brumm_vormerken(uint8_t was) {
     // sie nach vorn: das Zifferblatt weicht dem Training. Das ist der
     // Preis dafuer, dass der Zonenwechsel auch im Hintergrund etwas sagt.
     worker_launch_app();
-  } else {
-    prv_stand_senden();
   }
+  // SONST NICHTS SENDEN. Der Tick schickt den Stand samt Brummen gleich
+  // hinterher (prv_tick). Hier noch einmal zu senden hiess: zehn Nachrichten
+  // in einem Zug - und das System beendete die App, bei jedem Zonenwechsel.
 }
 
 static void prv_zonenwechsel(void) {
