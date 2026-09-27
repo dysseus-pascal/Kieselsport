@@ -82,6 +82,10 @@ static uint8_t s_abo_alter_s = 255;
 // bis eine zuschauende App es bekommen hat - hoechstens ein paar Sekunden,
 // sonst brummte es fuer etwas, das laengst vorbei ist.
 static uint8_t s_brumm = BrummNichts;
+// Die letzte Minute (botschaft.h) und wie viele Stuecke davon noch an eine
+// App gehen, die eben erst zuschaut.
+static uint8_t s_minute[KS_MINUTE_S];
+static uint8_t s_minute_offen;
 static time_t s_brumm_seit;
 #define BRUMM_FRIST_S 6
 
@@ -128,6 +132,18 @@ static void prv_stand_senden(void) {
   m.data1 = (uint16_t)(t.beginn & 0xFFFF);
   m.data2 = puls_maximum();
   app_worker_send_message(BotStand5, &m);
+
+  // ZWEI STUECKE JE SEKUNDE, nicht alle zwoelf auf einmal: der Weg zur App
+  // traegt ohnehin schon fuenf Nachrichten je Sekunde. Nach sechs Sekunden
+  // steht die ganze Minute.
+  for (int k = 0; k < 2 && s_minute_offen > 0; k++) {
+    const uint8_t *v = &s_minute[(s_minute_offen - 1) * KS_MINUTE_JE];
+    m.data0 = (uint16_t)((s_minute_offen - 1) * KS_MINUTE_JE | v[0] << 8);
+    m.data1 = (uint16_t)(v[1] | v[2] << 8);
+    m.data2 = (uint16_t)(v[3] | v[4] << 8);
+    app_worker_send_message(BotMinute, &m);
+    s_minute_offen--;
+  }
 }
 
 static void prv_brumm_vormerken(uint8_t was) {
@@ -212,6 +228,8 @@ static void prv_tick(struct tm *zeit, TimeUnits einheiten) {
   if (training_zustand() == LaufLaeuft) {
     prv_log_puls();
     kurve_tick(training_stand().dauer_s, training_puls_frisch() ? training_puls() : 0);
+    const uint16_t p = training_puls_frisch() ? training_puls() : 0;
+    s_minute[training_stand().dauer_s % KS_MINUTE_S] = p > 255 ? 255 : (uint8_t)p;
     if (zeit->tm_sec == 0) prv_akku_pruefen();
   }
   prv_zonenwechsel();
@@ -233,6 +251,7 @@ static void prv_starten_nach_bestellung(void) {
   training_starte_ab(art, beginn);
   prv_laeuft(true);
   kurve_start();
+  memset(s_minute, 0, sizeof(s_minute));
   prv_log_start();
   APP_LOG(APP_LOG_LEVEL_INFO, "Training gestartet: Art %d", (int)art);
 }
@@ -266,6 +285,8 @@ static void prv_befehl(uint16_t typ, AppWorkerMessage *daten) {
   AppWorkerMessage leer = { 0, 0, 0 };
   switch (typ) {
     case BefehlAbo:
+      // Eine App, die eben erst zuschaut, bekommt die Minute davor.
+      if (s_abo_alter_s > KS_ABO_S) s_minute_offen = KS_MINUTE_S / KS_MINUTE_JE;
       s_abo_alter_s = 0;
       prv_stand_senden();
       break;

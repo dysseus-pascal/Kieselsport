@@ -53,6 +53,7 @@ STR(STR_HOLE_STAND,     0,  "Loading …",    "Hole den Stand …", "Un instant 
 // breit, in Gothic 18 fett rund elf Zeichen.
 STR(STR_L_DAUER,        0,  "DURATION",     "DAUER",          "DURÉE",        "DURATA",        "DURACIÓN")
 STR(STR_L_PULS,         0,  "HEART RATE",   "PULS",           "POULS",        "BATTITO",       "PULSO")
+STR(STR_LETZTE_MINUTE,  0,  "Last minute",  "Letzte Minute",  "Dernière minute", "Ultimo minuto", "Último minuto")
 STR(STR_L_DISTANZ,      0,  "DISTANCE",     "DISTANZ",        "DISTANCE",     "DISTANZA",      "DISTANCIA")
 STR(STR_L_TEMPO,        0,  "PACE",         "TEMPO",          "ALLURE",       "PASSO",         "RITMO")
 STR(STR_L_SCHRITTE,     0,  "STEPS",        "SCHRITTE",       "PAS",          "PASSI",         "PASOS")

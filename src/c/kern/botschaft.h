@@ -26,7 +26,17 @@ enum {
   BotStand5,       //< data0 = Beginn hoch, data1 = Beginn tief, data2 = Maximalpuls
   BotFertig,       //< gespeichert - die Zusammenfassung liegt im Persist (wartend.h)
   BotVerworfen,    //< beendet, ohne Zusammenfassung
+  BotMinute,       //< ein Stueck der letzten Minute, siehe unten
 };
+
+// DIE LETZTE MINUTE fuer die Pulskurve der App. Der Worker merkt sich den
+// Puls jeder Trainingssekunde auf dem Platz Sekunde % 60; die App fuehrt
+// dieselbe Liste aus BotStand1 weiter. Nur wer die App eben erst oeffnet,
+// hat die Minute davor nicht - die schickt der Worker nach, in Stuecken zu
+// fuenf Werten: data0 = Platz | Wert << 8, data1 und data2 je zwei Werte.
+// 0 heisst: kein frischer Puls, die Kurve hat dort eine Luecke.
+#define KS_MINUTE_S 60
+#define KS_MINUTE_JE 5
 
 // Was zu brummen ist - im Feld "Brummen" von BotStand4. DER WORKER DARF
 // NICHT BRUMMEN, die App schon; also sagt er ihr, was faellig ist. Schaut

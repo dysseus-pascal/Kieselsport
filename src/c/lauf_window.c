@@ -38,6 +38,9 @@ static Layer *s_flaeche;
 static AppTimer *s_abo;
 static AppTimer *s_zu;
 
+// Der Puls der letzten Minute, auf dem Platz Sekunde % 60 (botschaft.h).
+static uint8_t s_minute[KS_MINUTE_S];
+
 // Was die App selbst weiss - und was der Worker ihr sagt.
 static Sportart s_art;
 static bool s_bereit;          //< gewaehlt, aber noch nicht gestartet
@@ -133,6 +136,7 @@ typedef enum {
 typedef struct {
   Feldart gross, links, rechts;
   bool herz;     //< die Pulsseite
+  bool kurve;    //< die letzte Minute als Kurve
 } Seite;
 
 #define KS_SEITEN_MAX 4
@@ -144,25 +148,27 @@ static int prv_seiten(Seite *aus) {
   switch (s_art) {
     case ArtLaufen:
     case ArtWandern:
-      aus[n++] = (Seite){ FeldDauer, FeldDistanz, FeldTempo, false };
-      aus[n++] = (Seite){ FeldDistanz, FeldSchritte, FeldKcal, false };
+      aus[n++] = (Seite){ FeldDauer, FeldDistanz, FeldTempo, false, false };
+      aus[n++] = (Seite){ FeldDistanz, FeldSchritte, FeldKcal, false, false };
       break;
     case ArtKraft:
-      aus[n++] = (Seite){ FeldSatz, FeldSaetze, FeldGesamt, false };
-      aus[n++] = (Seite){ FeldDauer, FeldSaetze, FeldKcal, false };
+      aus[n++] = (Seite){ FeldSatz, FeldSaetze, FeldGesamt, false, false };
+      aus[n++] = (Seite){ FeldDauer, FeldSaetze, FeldKcal, false, false };
       break;
     case ArtYoga:
-      aus[n++] = (Seite){ FeldDauer, FeldHrv, FeldKcal, false };
+      aus[n++] = (Seite){ FeldDauer, FeldHrv, FeldKcal, false, false };
       break;
     case ArtSchwimmen:
-      aus[n++] = (Seite){ FeldDauer, FeldBahnen, FeldMeter, false };
-      aus[n++] = (Seite){ FeldBahnen, FeldMeter, FeldKcal, false };
+      aus[n++] = (Seite){ FeldDauer, FeldBahnen, FeldMeter, false, false };
+      aus[n++] = (Seite){ FeldBahnen, FeldMeter, FeldKcal, false, false };
       break;
     default:   // Strasse/Gravel, MTB: Zeit, Puls, Kalorien - wenig, aber wahr
-      aus[n++] = (Seite){ FeldDauer, FeldKcal, FeldUhr, false };
+      aus[n++] = (Seite){ FeldDauer, FeldKcal, FeldUhr, false, false };
       break;
   }
-  aus[n++] = (Seite){ FeldPuls, FeldDauer, FeldKcal, true };
+  aus[n++] = (Seite){ FeldPuls, FeldDauer, FeldKcal, true, false };
+  // WIE IM WORKOUT hinter den Zonen die letzte Minute.
+  aus[n++] = (Seite){ FeldPuls, FeldKeins, FeldKeins, false, true };
   return n;
 }
 
@@ -344,11 +350,10 @@ static void prv_herz(GContext *ctx, GPoint links_oben, int f, GColor farbe, bool
 
 // Die Farbe der Pulszahl: die der Zone, auf Schwarzweiss und ohne frischen
 // Wert schwarz beziehungsweise grau.
-static GColor prv_pulsfarbe(void) {
-  if (s.puls == 0 || !s.frisch) return KS_FARBE_NEBEN;
+static GColor prv_zonenschrift(int zone) {
 #if defined(PBL_COLOR)
   // Die hellen Zonen sind auf Weiss nicht zu lesen - eine Stufe dunkler.
-  switch (s.zone) {
+  switch (zone) {
     case 1: return GColorCobaltBlue;
     case 2: return GColorArmyGreen;
     case 3: return GColorWindsorTan;
@@ -357,8 +362,14 @@ static GColor prv_pulsfarbe(void) {
     default: return KS_FARBE_TEXT;
   }
 #else
+  (void)zone;
   return KS_FARBE_TEXT;
 #endif
+}
+
+static GColor prv_pulsfarbe(void) {
+  if (s.puls == 0 || !s.frisch) return KS_FARBE_NEBEN;
+  return prv_zonenschrift(s.zone);
 }
 
 // DIE FUENF SAEULEN DER ZONEN, wie im Workout: jede in ihrer Farbe, die
@@ -624,9 +635,8 @@ static void prv_zeichne_gespeichert(GContext *ctx, GRect b, int16_t w) {
 
 // DIE PULSSEITE: Herz und Puls gross, darunter die Zonen als breite Saeulen
 // und der Name der Zone.
-static void prv_zeichne_pulsseite(GContext *ctx, GRect bereich, int16_t rand) {
-  const int16_t x = bereich.origin.x + rand, breite = bereich.size.w - 2 * rand;
-  int16_t y = bereich.origin.y;
+// Herz und Puls gross, darunter "PULS". Rueckgabe: die Zeile darunter.
+static int16_t prv_pulskopf(GContext *ctx, int16_t x, int16_t breite, int16_t y) {
   char zahl[8];
   if (s.puls == 0) snprintf(zahl, sizeof(zahl), "--");
   else snprintf(zahl, sizeof(zahl), "%u", (unsigned)s.puls);
@@ -642,7 +652,12 @@ static void prv_zeichne_pulsseite(GContext *ctx, GRect bereich, int16_t rand) {
   y += zh;
   graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
   prv_text(ctx, S(STR_L_PULS), FONT_KEY_GOTHIC_14, GRect(x, y - 3, breite, 18), GTextAlignmentCenter);
-  y += 18;
+  return y + 18;
+}
+
+static void prv_zeichne_pulsseite(GContext *ctx, GRect bereich, int16_t rand) {
+  const int16_t x = bereich.origin.x + rand, breite = bereich.size.w - 2 * rand;
+  int16_t y = prv_pulskopf(ctx, x, breite, bereich.origin.y);
 
   const int16_t sh = KS_BREIT ? 22 : 16;
   prv_saeulen(ctx, GRect(x, y, breite, sh), 3);
@@ -650,6 +665,74 @@ static void prv_zeichne_pulsseite(GContext *ctx, GRect bereich, int16_t rand) {
   graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
   prv_text(ctx, prv_puls_frisch() ? S(prv_zonenname(s.zone)) : "--",
            FONT_KEY_GOTHIC_14_BOLD, GRect(x, y - 2, breite, 18), GTextAlignmentCenter);
+}
+
+// DIE LETZTE MINUTE, wie im Workout: oben der Puls, darunter seine Kurve,
+// links die Grenzen. Die Grenzen sind auf Zehner gerundet, damit dort runde
+// Zahlen stehen; jedes Stueck der Linie traegt die Farbe seiner Zone. Wo
+// kein frischer Puls kam, bleibt eine Luecke - eine gezogene Linie
+// behauptete einen Puls, den niemand gemessen hat.
+static void prv_zeichne_kurvenseite(GContext *ctx, GRect bereich, int16_t rand) {
+  const int16_t x = bereich.origin.x + rand, breite = bereich.size.w - 2 * rand;
+  const int16_t y = prv_pulskopf(ctx, x, breite, bereich.origin.y);
+  const int16_t unten = bereich.origin.y + bereich.size.h;
+
+  int tief = 255, hoch = 0;
+  for (int i = 0; i < KS_MINUTE_S; i++) {
+    if (s_minute[i] == 0) continue;
+    if (s_minute[i] < tief) tief = s_minute[i];
+    if (s_minute[i] > hoch) hoch = s_minute[i];
+  }
+  const bool leer = hoch == 0;
+  if (!leer) {
+    tief = tief / 10 * 10;
+    hoch = (hoch + 9) / 10 * 10;
+    // Mindestens zwanzig Schlaege hoch: sonst zoege jedes Zittern um einen
+    // Schlag die Linie ueber die ganze Hoehe.
+    if (hoch - tief < 20) hoch = tief + 20;
+  }
+
+  const int16_t beschrift_h = 16;
+  const int16_t zahl_b = KS_BREIT ? 24 : 20;
+  // Rechts Platz fuer den Tastenpunkt, sonst verschwaende darunter gerade
+  // die juengste Sekunde.
+  const int16_t punkt = PBL_IF_ROUND_ELSE(0, 8);
+  const GRect k = GRect(x + zahl_b + 2, y + 6, breite - zahl_b - 2 - punkt, unten - y - 6 - beschrift_h);
+  if (k.size.h < 10) return;
+
+  // Die Grenzen: oben und unten ein Strich, daneben die Zahl.
+  graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
+  graphics_draw_line(ctx, GPoint(k.origin.x, k.origin.y), GPoint(k.origin.x + k.size.w - 1, k.origin.y));
+  graphics_draw_line(ctx, GPoint(k.origin.x, k.origin.y + k.size.h - 1),
+                     GPoint(k.origin.x + k.size.w - 1, k.origin.y + k.size.h - 1));
+  if (!leer) {
+    char z[6];
+    graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+    snprintf(z, sizeof(z), "%d", hoch);
+    prv_text(ctx, z, FONT_KEY_GOTHIC_14, GRect(x, k.origin.y - 9, zahl_b, 16), GTextAlignmentRight);
+    snprintf(z, sizeof(z), "%d", tief);
+    prv_text(ctx, z, FONT_KEY_GOTHIC_14, GRect(x, k.origin.y + k.size.h - 10, zahl_b, 16), GTextAlignmentRight);
+  }
+
+  // Die Linie: links die aelteste Sekunde, rechts die juengste.
+  graphics_context_set_stroke_width(ctx, KS_BREIT ? 3 : 2);
+  GPoint vorher = GPoint(0, 0);
+  bool hat_vorher = false;
+  for (int i = 0; i < KS_MINUTE_S && !leer; i++) {
+    const uint8_t v = s_minute[(s.sekunden + 1 + i) % KS_MINUTE_S];
+    if (v == 0) { hat_vorher = false; continue; }
+    const GPoint p = GPoint(k.origin.x + i * (k.size.w - 1) / (KS_MINUTE_S - 1),
+                            k.origin.y + k.size.h - 1 - (v - tief) * (k.size.h - 1) / (hoch - tief));
+    graphics_context_set_stroke_color(ctx, prv_zonenschrift(puls_zone(v)));
+    graphics_draw_line(ctx, hat_vorher ? vorher : p, p);
+    vorher = p;
+    hat_vorher = true;
+  }
+  graphics_context_set_stroke_width(ctx, 1);
+
+  graphics_context_set_text_color(ctx, KS_FARBE_NEBEN);
+  prv_text(ctx, S(STR_LETZTE_MINUTE), FONT_KEY_GOTHIC_14, GRect(k.origin.x, unten - beschrift_h - 2, k.size.w, 18),
+           GTextAlignmentCenter);
 }
 
 static void prv_zeichne(Layer *layer, GContext *ctx) {
@@ -723,6 +806,8 @@ static void prv_zeichne(Layer *layer, GContext *ctx) {
 
   if (seite->herz) {
     prv_zeichne_pulsseite(ctx, GRect(0, y + luft / 2, w, unten - y), rand);
+  } else if (seite->kurve) {
+    prv_zeichne_kurvenseite(ctx, GRect(0, y, w, unten - y), rand);
   } else {
     if (pause) {
       graphics_context_set_text_color(ctx, KS_FARBE_TEXT);
@@ -867,7 +952,20 @@ void lauf_window_nachricht(uint16_t typ, AppWorkerMessage *d) {
         return;
       }
       s.da = true;
+      if (s.zustand == LaufLaeuft) {
+        s_minute[s.sekunden % KS_MINUTE_S] = (s.frisch && s.puls <= 255) ? (uint8_t)s.puls : 0;
+      }
       break;
+    case BotMinute: {
+      const uint8_t platz = d->data0 & 0xFF;
+      if (platz > KS_MINUTE_S - KS_MINUTE_JE) return;
+      const uint8_t v[KS_MINUTE_JE] = {
+        (uint8_t)(d->data0 >> 8), (uint8_t)d->data1, (uint8_t)(d->data1 >> 8),
+        (uint8_t)d->data2, (uint8_t)(d->data2 >> 8),
+      };
+      memcpy(&s_minute[platz], v, KS_MINUTE_JE);
+      break;
+    }
     case BotStand2:
       s.schritte = d->data0;
       s.meter = (uint32_t)d->data1 * 10;
@@ -1067,6 +1165,10 @@ static void prv_oeffnen(void) {
   s_seite = 0;
   s_verwerfen_bis = 0;
   memset(&s, 0, sizeof(s));
+  memset(s_minute, 0, sizeof(s_minute));
+  // Die Zonengrenzen fuer die Farben der Kurve - aus dem Persist, den App
+  // und Worker teilen.
+  puls_init();
 
   s_fenster = window_create();
   window_set_background_color(s_fenster, KS_FARBE_GRUND);
