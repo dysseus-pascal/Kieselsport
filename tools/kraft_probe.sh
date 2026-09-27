@@ -43,10 +43,9 @@ pebble install --emulator "$UHR" >/dev/null 2>&1 || {
   echo "Bau nicht aufgespielt - erst bauen, dann probieren"; exit 1; }
 sleep 4
 
-# SEIT 0.6.0 STARTET DAS TRAINING NICHT MEHR VON SELBST: der Schirm sagt
-# "Select startet", und ohne diesen Druck zaehlt niemand etwas.
-pebble emu-button click select --emulator "$UHR" >/dev/null 2>&1
-sleep 2
+# KEIN SELECT: der Pruefbau (KS_DEMO) startet das Training nach einer halben
+# Sekunde selbst. Ein Druck hier PAUSIERTE es - das war die Pause "ohne
+# Tastendruck" aus Issue #1, und danach zaehlte natuerlich nichts mehr.
 
 echo "-- Grundlinie setzen (Ruhe) --"
 pebble emu-accel custom "$ORDNER/ruhe.csv" --emulator "$UHR" >/dev/null 2>&1
